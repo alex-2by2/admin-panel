@@ -25,7 +25,6 @@ def login():
       <button>Login</button>
     </form>
     """
-
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("admin"):
@@ -35,28 +34,23 @@ def dashboard():
         return "<h3>Dashboard OK</h3><p>⚠ MongoDB not connected</p>"
 
     if request.method == "POST":
-        db.captions.delete_many({})
-        db.captions.insert_one({"text": request.form.get("caption")})
+        db.captions.update_one(
+            {"type": "channel_caption"},
+            {"$set": {"text": request.form.get("caption")}},
+            upsert=True
+        )
         return redirect(url_for("dashboard"))
 
-    data = db.captions.find_one()
+    data = db.captions.find_one({"type": "channel_caption"})
     current = data["text"] if data else ""
 
     return f"""
-    <h2>Caption Control Panel</h2>
+    <h2>Channel Auto Caption Panel</h2>
     <form method="post">
-      <textarea name="caption" rows="5" cols="40">{current}</textarea><br><br>
-      <button>Save Caption</button>
+      <textarea name="caption" rows="5" cols="50"
+        placeholder="Enter channel caption">{current}</textarea><br><br>
+      <button>Save Channel Caption</button>
     </form>
     <br>
     <a href="/logout">Logout</a>
     """
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
