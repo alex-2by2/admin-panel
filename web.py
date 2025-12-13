@@ -1,64 +1,69 @@
 from flask import Flask, request, redirect, session, url_for
 import os
+from db import init_db, captions
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key"
 
-# 🔐 REQUIRED for session (VERY IMPORTANT)
-app.secret_key = "THIS_IS_A_SECRET_KEY_123"
-
-# 🔑 Admin password from environment
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
+# Init DB safely
+init_db()
+
+# ---------------- LOGIN ----------------
 @app.route("/", methods=["GET", "POST"])
 def login():
-    try:
-        if request.method == "POST":
-            password = request.form.get("password")
+    if request.method == "POST":
+        if ADMIN_PASSWORD is None:
+            return "ADMIN_PASSWORD not set"
 
-            if ADMIN_PASSWORD is None:
-                return "❌ ADMIN_PASSWORD not set in Railway Variables"
+        if request.form.get("password") == ADMIN_PASSWORD:
+            session["admin"] = True
+            return redirect(url_for("dashboard"))
+        return "Wrong password"
 
-            if password == ADMIN_PASSWORD:
-                session["admin"] = True
-                return redirect(url_for("dashboard"))
-            else:
-                return "<h3>Wrong Password</h3><a href='/'>Back</a>"
+    return """
+    <h2>Admin Login</h2>
+    <form method="post">
+      <input type="password" name="password" required>
+      <button>Login</button>
+    </form>
+    """
 
-        return """
-        <h2>Admin Login</h2>
-        <form method="post">
-            <input type="password" name="password" placeholder="Admin Password" required>
-            <br><br>
-            <button type="submit">Login</button>
-        </form>
-        """
-
-    except Exception as e:
-        return f"<pre>LOGIN ERROR: {e}</pre>", 500
-
-
-@app.route("/dashboard")
+# ---------------- DASHBOARD ----------------
+@app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
-    try:
-        if not session.get("admin"):
-            return redirect(url_for("login"))
+    if not session.get("admin"):
+        return redirect(url_for("login"))
 
-        return """
-        <h2>Dashboard ✅</h2>
-        <p>Login successful</p>
-        <a href="/logout">Logout</a>
-        """
+    if captions is None:
+        return "<h3>Dashboard OK</h3><p>MongoDB not connected</p>"
 
-    except Exception as e:
-        return f"<pre>DASHBOARD ERROR: {e}</pre>", 500
+    if request.method == "POST":
+        captions.delete_many({})
+        captions.insert_one({"text": request.form.get("caption")})
+        return redirect(url_for("dashboard"))
 
+    data = captions.find_one()
+    current = data["text"] if data else ""
 
+    return f"""
+    <h2>Caption Control Panel</h2>
+    <form method="post">
+      <textarea name="caption" rows="5" cols="40">{current}</textarea><br><br>
+      <button>Save Caption</button>
+    </form>
+    <br>
+    <a href="/logout">Logout</a>
+    """
+
+# ---------------- LOGOUT ----------------
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
+# ---------------- RUN ----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
