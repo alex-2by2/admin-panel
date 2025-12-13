@@ -1,21 +1,18 @@
 from flask import Flask, request, redirect, session, url_for
 import os
-from db import init_db, captions
+import db   # 🔥 IMPORT MODULE, NOT VARIABLE
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
-# init DB safely
-init_db()
+# init DB
+db.init_db()
 
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        if ADMIN_PASSWORD is None:
-            return "ADMIN_PASSWORD not set"
-
         if request.form.get("password") == ADMIN_PASSWORD:
             session["admin"] = True
             return redirect(url_for("dashboard"))
@@ -24,7 +21,7 @@ def login():
     return """
     <h2>Admin Login</h2>
     <form method="post">
-      <input type="password" name="password" placeholder="Admin Password" required>
+      <input type="password" name="password" required>
       <button>Login</button>
     </form>
     """
@@ -34,17 +31,15 @@ def dashboard():
     if not session.get("admin"):
         return redirect(url_for("login"))
 
-    if captions is None:
+    if db.captions is None:
         return "<h3>Dashboard OK</h3><p>⚠ MongoDB not connected</p>"
 
     if request.method == "POST":
-        captions.delete_many({})
-        captions.insert_one({
-            "text": request.form.get("caption")
-        })
+        db.captions.delete_many({})
+        db.captions.insert_one({"text": request.form.get("caption")})
         return redirect(url_for("dashboard"))
 
-    data = captions.find_one()
+    data = db.captions.find_one()
     current = data["text"] if data else ""
 
     return f"""
