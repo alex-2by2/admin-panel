@@ -6,7 +6,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Init DB safely
+# init DB safely
 init_db()
 
 @bot.message_handler(commands=["start"])
@@ -23,5 +23,5 @@ def reply_with_caption(message):
     text = data["text"] if data else "No caption set"
     bot.reply_to(message, text)
 
-print("🤖 Bot running")
+print("🤖 Bot running...")
 bot.infinity_polling()
