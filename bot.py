@@ -4,24 +4,23 @@ from db import init_db, captions
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
-# init DB safely
 init_db()
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.reply_to(message, "🤖 Bot connected. Send any message.")
+    bot.reply_to(message, "🤖 Bot connected successfully!")
 
 @bot.message_handler(func=lambda m: True)
 def reply_with_caption(message):
     if captions is None:
-        bot.reply_to(message, "Caption DB not connected")
+        bot.reply_to(message, "DB not connected")
         return
 
     data = captions.find_one()
-    text = data["text"] if data else "No caption set"
-    bot.reply_to(message, text)
+    bot.reply_to(message, data["text"] if data else "No caption set")
 
-print("🤖 Bot running...")
-bot.infinity_polling()
+print("🤖 Bot running (single instance)")
+
+bot.infinity_polling(skip_pending=True)
