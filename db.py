@@ -20,5 +20,5 @@ def init_db():
         captions = db.captions
         print("✅ MongoDB connected")
     except ServerSelectionTimeoutError as e:
-        print("❌ MongoDB not connected:", e)
+        print("❌ MongoDB connection failed:", e)
         captions = None
