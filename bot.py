@@ -74,4 +74,4 @@ def handle_video_channel_post(message):
         print("Video edit failed:", e)
 print("🤖 Bot running with channel auto-caption")
 
-bot.infinity_polling(skip_pending=True)
+bot.infinity_polling()
