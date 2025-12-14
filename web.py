@@ -134,31 +134,47 @@ def buttons():
         return redirect("/buttons")
 
     return page("Inline Buttons", """
-    <h2>Inline Buttons (Advanced)</h2>
+<h2>Inline Buttons (Drag & Drop Rows)</h2>
 
-    <p><b>FORMAT:</b></p>
-    <pre>
-Row = new line
-Button = text|url
-Multiple buttons = comma
-    </pre>
+<form method="post">
+  <input name="channel_id" placeholder="Channel ID (empty = default)">
 
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (empty = default)">
-      <textarea name="rows" rows="8"
-      placeholder="Google|https://google.com, YouTube|https://youtube.com
-Telegram|https://t.me"></textarea>
+  <ul id="rows">
+    <li draggable="true">
+      <textarea>Google|https://google.com, YouTube|https://youtube.com</textarea>
+    </li>
+    <li draggable="true">
+      <textarea>Telegram|https://t.me</textarea>
+    </li>
+  </ul>
 
-      <button>Save Buttons</button>
-    </form>
+  <input type="hidden" name="rows" id="rowsInput">
+  <button onclick="prepare()">Save Buttons</button>
+</form>
 
-    <hr>
-    <h3>Preview</h3>
-    <p>[ Google ] [ YouTube ]</p>
-    <p>[ Telegram ]</p>
+<script>
+let drag;
+document.querySelectorAll('#rows li').forEach(li=>{
+  li.ondragstart=e=>drag=li;
+  li.ondragover=e=>e.preventDefault();
+  li.ondrop=e=>{
+    e.preventDefault();
+    li.parentNode.insertBefore(drag, li);
+  };
+});
 
-    <a href="/dashboard">Back</a>
-    """)
+function prepare(){
+  let out=[];
+  document.querySelectorAll('#rows textarea').forEach(t=>{
+    out.push(t.value);
+  });
+  document.getElementById('rowsInput').value=out.join('\\n');
+}
+</script>
+
+<p><b>Drag rows to reorder</b></p>
+<a href="/dashboard">Back</a>
+""")
 # ---------- VIEW ALL CAPTIONS ----------
 @app.route("/all")
 def all_captions():
