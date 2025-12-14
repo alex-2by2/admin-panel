@@ -1,42 +1,98 @@
-import telebot, os, db
+import telebot
+import os
+import db
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-BOT_TOKEN=os.environ.get("BOT_TOKEN")
-ADMIN_IDS=os.environ.get("BOT_ADMINS","").split(",")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
-bot=telebot.TeleBot(BOT_TOKEN,threaded=False)
 db.init_db()
 
-def get_buttons(cid):
-    d=db.captions.find_one({"type":"inline_buttons","channel_id":str(cid)}) or \
-      db.captions.find_one({"type":"inline_buttons","channel_id":"default"})
-    if not d: return None
-    kb=InlineKeyboardMarkup()
-    for r in d["buttons"]:
-        kb.row(*[InlineKeyboardButton(text=b["text"],url=b["url"]) for b in r])
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    bot.reply_to(message, "🤖 Channel Auto Caption Bot is running")
+
+
+# ---------- INLINE BUTTON BUILDER ----------
+def get_inline_keyboard(channel_id):
+    data = db.captions.find_one({
+        "type": "inline_buttons",
+        "channel_id": str(channel_id)
+    }) or db.captions.find_one({
+        "type": "inline_buttons",
+        "channel_id": "default"
+    })
+
+    if not data:
+        return None
+
+    kb = InlineKeyboardMarkup()
+    for row in data.get("rows", []):
+        buttons = []
+        for b in row:
+            buttons.append(
+                InlineKeyboardButton(text=b["text"], url=b["url"])
+            )
+        kb.row(*buttons)
+
     return kb
 
-def get_caption(t,cid):
-    d=db.captions.find_one({"type":t,"channel_id":str(cid)}) or \
-      db.captions.find_one({"type":t,"channel_id":"default"})
-    return d["text"] if d else None
 
-@bot.channel_post_handler(content_types=["text","photo","video"])
-def handle(m):
-    t="text_caption" if m.content_type=="text" else f"{m.content_type}_caption"
-    cap=get_caption(t,m.chat.id)
-    if not cap: return
-    if m.content_type=="text":
-        bot.edit_message_text(m.text+"\n\n"+cap,m.chat.id,m.message_id,reply_markup=get_buttons(m.chat.id))
-    else:
-        bot.edit_message_caption(m.chat.id,m.message_id,cap,reply_markup=get_buttons(m.chat.id))
+# ---------- CAPTION RESOLVER ----------
+def get_caption(caption_type, channel_id):
+    doc = db.captions.find_one({
+        "type": caption_type,
+        "channel_id": str(channel_id)
+    }) or db.captions.find_one({
+        "type": caption_type,
+        "channel_id": "default"
+    })
 
-@bot.message_handler(commands=["delete_channel"])
-def delete_channel(m):
-    if str(m.from_user.id) not in ADMIN_IDS: return
-    _,cid=m.text.split()
-    r=db.captions.delete_many({"channel_id":cid})
-    bot.reply_to(m,f"Deleted {r.deleted_count} items")
+    return doc["text"] if doc else None
 
-print("🤖 Bot running – FULL FEATURE SET")
+
+@bot.channel_post_handler(content_types=["text"])
+def handle_text(m):
+    caption = get_caption("text_caption", m.chat.id)
+    if not caption:
+        return
+
+    bot.edit_message_text(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        text=m.text + "\n\n" + caption,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+@bot.channel_post_handler(content_types=["photo"])
+def handle_photo(m):
+    caption = get_caption("photo_caption", m.chat.id)
+    if not caption:
+        return
+
+    bot.edit_message_caption(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        caption=caption,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+@bot.channel_post_handler(content_types=["video"])
+def handle_video(m):
+    caption = get_caption("video_caption", m.chat.id)
+    if not caption:
+        return
+
+    bot.edit_message_caption(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        caption=caption,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+print("🤖 Bot running with row-based inline buttons")
 bot.infinity_polling()
