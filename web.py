@@ -7,7 +7,17 @@ app.secret_key = "safe-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 db.init_db()
-
+def render_row(row):
+    inputs = "".join(
+        f'<input value="{b["text"]}|{b["url"]}" class="w-full border p-2 mb-1">'
+        for b in row
+    )
+    return f'''
+    <div class="border p-2 rounded mb-2 row" draggable="true">
+      {inputs}
+      <button type="button" onclick="this.parentElement.remove()">❌</button>
+    </div>
+    '''
 # ---------- TAILWIND PAGE ----------
 def page(title, body):
     return f"""
