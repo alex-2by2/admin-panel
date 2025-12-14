@@ -37,7 +37,24 @@ def page(title, body):
     <body>{body}</body>
     </html>
     """
-
+body {
+  font-family: system-ui, -apple-system;
+  background:#f4f6f8;
+}
+h2 { color:#222; }
+form {
+  background:#fff;
+  padding:15px;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  margin-bottom:20px;
+}
+button {
+  background:#2563eb;
+  color:white;
+  border:none;
+  border-radius:8px;
+}
 
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET", "POST"])
