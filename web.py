@@ -110,45 +110,63 @@ def dashboard():
 
 
 # ---------- INLINE BUTTONS (ROWS + REORDER) ----------
-@app.route("/buttons", methods=["GET","POST"])
+@app.route("/buttons", methods=["GET", "POST"])
 def buttons():
-    require_login()
-    require_role("superadmin","admin")
+    if not session.get("admin"):
+        return redirect("/")
 
     import db
+
     if request.method == "POST":
         channel_id = request.form.get("channel_id") or "default"
-        rows = []
 
-        for line in request.form.get("rows","").splitlines():
-            row=[]
-            for pair in line.split(","):
-                if "|" in pair:
-                    t,u = pair.split("|",1)
-                    row.append({"text":t.strip(),"url":u.strip()})
+        rows = []
+        raw = request.form.get("buttons", "").strip()
+
+        # Format:
+        # Row1: text|url , text|url
+        # Row2: text|url
+        for line in raw.splitlines():
+            row = []
+            for part in line.split(","):
+                if "|" in part:
+                    t, u = part.split("|", 1)
+                    row.append({"text": t.strip(), "url": u.strip()})
             if row:
                 rows.append(row)
 
         db.captions.update_one(
-            {"type":"inline_buttons","channel_id":channel_id},
-            {"$set":{"buttons":rows}},
+            {"type": "inline_buttons", "channel_id": channel_id},
+            {"$set": {"rows": rows}},
             upsert=True
         )
+
         return redirect("/buttons")
 
-    return page("Buttons","""
-    <h2>Inline Buttons</h2>
+    return page("Buttons", """
+    <h2>Inline Buttons (Row Based)</h2>
+
+    <p><b>Format:</b><br>
+    Row = new line<br>
+    Button = text|url<br>
+    Multiple buttons = comma</p>
+
     <form method="post">
       <input name="channel_id" placeholder="Channel ID (empty = default)">
-      <p>One row per line → text|url , text|url</p>
-      <textarea name="rows" rows="6"
-      placeholder="Google|https://google.com, YouTube|https://youtube.com"></textarea>
+      <textarea name="buttons" rows="8"
+      placeholder="Google|https://google.com, YouTube|https://youtube.com
+Telegram|https://t.me"></textarea>
+
       <button>Save Buttons</button>
     </form>
+
+    <hr>
+    <h3>Preview (Example)</h3>
+    <p>[ Google ] [ YouTube ]</p>
+    <p>[ Telegram ]</p>
+
     <a href="/dashboard">Back</a>
     """)
-
-
 # ---------- ALL CAPTIONS ----------
 @app.route("/all")
 def all_caps():
