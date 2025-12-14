@@ -110,34 +110,55 @@ def buttons():
 
     if request.method == "POST":
         channel_id = request.form.get("channel_id") or "default"
-        buttons = []
+        raw = request.form.get("rows", "").strip()
 
-        for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
-            if t and u:
-                buttons.append({"text": t, "url": u})
+        rows = []
+        for line in raw.splitlines():
+            row = []
+            for part in line.split(","):
+                if "|" in part:
+                    t, u = part.split("|", 1)
+                    row.append({
+                        "text": t.strip(),
+                        "url": u.strip()
+                    })
+            if row:
+                rows.append(row)
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
-            {"$set": {"buttons": buttons}},
+            {"$set": {"rows": rows}},
             upsert=True
         )
+
         return redirect("/buttons")
 
     return page("Inline Buttons", """
-    <h2>Inline Buttons</h2>
+    <h2>Inline Buttons (Advanced)</h2>
+
+    <p><b>FORMAT:</b></p>
+    <pre>
+Row = new line
+Button = text|url
+Multiple buttons = comma
+    </pre>
 
     <form method="post">
       <input name="channel_id" placeholder="Channel ID (empty = default)">
-      <input name="text" placeholder="Button Text">
-      <input name="url" placeholder="Button URL (https://...)">
-      <button>Save Button</button>
+      <textarea name="rows" rows="8"
+      placeholder="Google|https://google.com, YouTube|https://youtube.com
+Telegram|https://t.me"></textarea>
+
+      <button>Save Buttons</button>
     </form>
 
-    <p><b>Note:</b> URL must be FULL https link</p>
+    <hr>
+    <h3>Preview</h3>
+    <p>[ Google ] [ YouTube ]</p>
+    <p>[ Telegram ]</p>
+
     <a href="/dashboard">Back</a>
     """)
-
-
 # ---------- VIEW ALL CAPTIONS ----------
 @app.route("/all")
 def all_captions():
