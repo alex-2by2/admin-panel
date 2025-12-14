@@ -123,7 +123,41 @@ Telegram|https://t.me"></textarea>
     <p>Use /preview_buttons in Telegram to preview</p>
     </div>
     """)
+# ---------- VIEW ALL CAPTIONS ----------
+@app.route("/all")
+def all_items():
+    if not session.get("admin"):
+        return redirect("/")
 
+    rows = ""
+    for d in db.captions.find():
+        rows += f"""
+        <tr>
+          <td>{d.get("channel_id")}</td>
+          <td>{d.get("type")}</td>
+          <td>{str(d.get("text", d.get("rows","")))[:60]}</td>
+          <td>
+            <a href="/delete/{d['_id']}">❌ Delete</a>
+          </td>
+        </tr>
+        """
+
+    return page("All Data", f"""
+    <div class="card">
+    <h3>All Captions & Buttons</h3>
+    <table width="100%" border="1" cellspacing="0" cellpadding="5">
+      <tr>
+        <th>Channel</th>
+        <th>Type</th>
+        <th>Preview</th>
+        <th>Action</th>
+      </tr>
+      {rows}
+    </table>
+    <br>
+    <a href="/dashboard">⬅ Back</a>
+    </div>
+    """)
 
 # ---------- CHANNEL ENABLE/DISABLE ----------
 @app.route("/channels", methods=["GET","POST"])
@@ -146,7 +180,13 @@ def channels():
     </div>
     """)
 
-
+# ---------- DELETE SINGLE ITEM ----------
+@app.route("/delete/<id>")
+def delete(id):
+    if not session.get("admin"):
+        return redirect("/")
+    db.captions.delete_one({"_id": ObjectId(id)})
+    return redirect("/all")
 # ---------- BULK DELETE ----------
 @app.route("/bulk", methods=["POST"])
 def bulk():
