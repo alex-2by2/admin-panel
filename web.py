@@ -96,30 +96,35 @@ def buttons():
     import db
 
     if request.method == "POST":
+        buttons = []
+        for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
+            if t and u:
+                buttons.append({"text": t, "url": u})
+
         db.captions.update_one(
-            {"type": "inline_button"},
-            {"$set": {
-                "text": request.form["btn_text"],
-                "url": request.form["btn_url"]
-            }},
+            {"type": "inline_buttons"},
+            {"$set": {"buttons": buttons}},
             upsert=True
         )
         return redirect("/buttons")
 
-    data = db.captions.find_one({"type": "inline_button"})
-    text = data["text"] if data else ""
-    url = data["url"] if data else ""
+    data = db.captions.find_one({"type": "inline_buttons"})
+    buttons = data["buttons"] if data else []
+
+    rows = ""
+    for b in buttons:
+        rows += f'<input name="text" value="{b["text"]}"> <input name="url" value="{b["url"]}"><br>'
 
     return f"""
-    <h2>Inline Button Control</h2>
+    <h2>Inline Buttons</h2>
     <form method="post">
-      <input name="btn_text" placeholder="Button Text" value="{text}" required><br><br>
-      <input name="btn_url" placeholder="Button URL" value="{url}" required><br><br>
-      <button>Save Button</button>
+      {rows}
+      <input name="text" placeholder="Button Text">
+      <input name="url" placeholder="Button URL"><br><br>
+      <button>Save Buttons</button>
     </form>
     <br><a href="/dashboard">Back</a>
     """
-
 
 # ---------- LOGOUT ----------
 @app.route("/logout")
