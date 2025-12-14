@@ -7,17 +7,7 @@ app.secret_key = "safe-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 db.init_db()
-def render_row(row):
-    inputs = "".join(
-        f'<input value="{b["text"]}|{b["url"]}" class="w-full border p-2 mb-1">'
-        for b in row
-    )
-    return f'''
-    <div class="border p-2 rounded mb-2 row" draggable="true">
-      {inputs}
-      <button type="button" onclick="this.parentElement.remove()">❌</button>
-    </div>
-    '''
+
 # ---------- TAILWIND PAGE ----------
 def page(title, body):
     return f"""
@@ -39,6 +29,26 @@ def page(title, body):
     </html>
     """
 
+# ---------- RENDER BUTTON ROW (FIX) ----------
+def render_row(row):
+    inputs = ""
+    for b in row:
+        inputs += f'''
+        <input value="{b["text"]}|{b["url"]}"
+          class="w-full border p-2 mb-1 rounded">
+        '''
+
+    return f'''
+    <div class="border p-2 rounded mb-2 row bg-gray-50" draggable="true">
+      {inputs}
+      <button type="button"
+        onclick="this.parentElement.remove()"
+        class="text-red-600 text-sm mt-1">
+        ❌ Remove Row
+      </button>
+    </div>
+    '''
+
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET","POST"])
 def login():
@@ -50,7 +60,8 @@ def login():
     return page("Admin Login", """
     <div class="bg-white p-6 rounded shadow max-w-sm mx-auto">
       <form method="post" class="space-y-4">
-        <input type="password" name="password" placeholder="Admin password"
+        <input type="password" name="password"
+          placeholder="Admin password"
           class="w-full border p-2 rounded">
         <button class="w-full bg-blue-600 text-white p-2 rounded">
           Login
@@ -73,11 +84,7 @@ def dashboard():
       </a>
 
       <a href="/buttons" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-        🔘 Inline Buttons
-      </a>
-
-      <a href="/channels" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-        📡 Channel Status
+        🔘 Inline Buttons (Drag & Drop)
       </a>
 
       <a href="/all" class="bg-white p-4 rounded shadow hover:bg-blue-50">
@@ -115,7 +122,8 @@ def add():
     return page("Add Caption", """
     <div class="bg-white p-6 rounded shadow">
       <form method="post" class="space-y-4">
-        <input name="channel" placeholder="Channel ID (blank = default)"
+        <input name="channel"
+          placeholder="Channel ID (blank = default)"
           class="w-full border p-2 rounded">
 
         <select name="type" class="w-full border p-2 rounded">
@@ -135,7 +143,7 @@ def add():
     </div>
     """)
 
-# ---------- INLINE BUTTONS ----------
+# ---------- INLINE BUTTONS (DRAG & DROP) ----------
 @app.route("/buttons", methods=["GET","POST"])
 def buttons():
     if not session.get("admin"):
@@ -187,9 +195,14 @@ def buttons():
 function addRow(){
   const rows=document.getElementById("rows");
   rows.insertAdjacentHTML("beforeend",`
-    <div class="border p-2 rounded mb-2 row" draggable="true">
-      <input placeholder="Text|URL" class="w-full border p-2 mb-1">
-      <button type="button" onclick="this.parentElement.remove()">❌</button>
+    <div class="border p-2 rounded mb-2 row bg-gray-50" draggable="true">
+      <input placeholder="Text|URL"
+        class="w-full border p-2 mb-1 rounded">
+      <button type="button"
+        onclick="this.parentElement.remove()"
+        class="text-red-600 text-sm">
+        ❌ Remove Row
+      </button>
     </div>
   `);
   enableDrag();
@@ -226,6 +239,7 @@ function enableDrag(){
 enableDrag();
 </script>
 """)
+
 # ---------- VIEW ALL ----------
 @app.route("/all")
 def all_items():
@@ -239,10 +253,6 @@ def all_items():
           <td class="p-2">{d.get("channel_id")}</td>
           <td class="p-2">{d.get("type")}</td>
           <td class="p-2">{str(d.get("text",""))[:40]}</td>
-          <td class="p-2">
-            <a class="text-blue-600" href="/edit/{d['_id']}">Edit</a> |
-            <a class="text-red-600" href="/delete/{d['_id']}">Delete</a>
-          </td>
         </tr>
         """
 
@@ -253,7 +263,6 @@ def all_items():
           <th class="p-2">Channel</th>
           <th class="p-2">Type</th>
           <th class="p-2">Text</th>
-          <th class="p-2">Action</th>
         </tr>
         {rows}
       </table>
