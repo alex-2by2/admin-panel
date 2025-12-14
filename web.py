@@ -6,7 +6,7 @@ app.secret_key = "safe-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 
-# ---------- DB INIT (SAFE) ----------
+# ---------- DB INIT ----------
 try:
     import db
     db.init_db()
@@ -16,84 +16,130 @@ except Exception as e:
     DB_OK = False
 
 
+# ---------- MOBILE UI WRAPPER ----------
+def page(title, body):
+    return f"""
+    <html>
+    <head>
+      <title>{title}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        body {{
+          font-family: Arial;
+          padding: 15px;
+          max-width: 600px;
+          margin: auto;
+        }}
+        textarea, input {{
+          width: 100%;
+          padding: 10px;
+          margin: 6px 0;
+          font-size: 16px;
+        }}
+        button {{
+          width: 100%;
+          padding: 12px;
+          font-size: 18px;
+          background: #2b7cff;
+          color: white;
+          border: none;
+          border-radius: 6px;
+        }}
+        h2 {{ text-align: center; }}
+        a {{ display: block; text-align: center; margin-top: 15px; }}
+      </style>
+    </head>
+    <body>
+      {body}
+    </body>
+    </html>
+    """
+
+
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         if request.form.get("password") == ADMIN_PASSWORD:
             session["admin"] = True
-            return redirect(url_for("dashboard"))
-        return "Wrong password"
+            return redirect("/dashboard")
+        return page("Error", "<h3>Wrong password</h3><a href='/'>Back</a>")
 
-    return """
+    return page("Login", """
     <h2>Admin Login</h2>
     <form method="post">
-      <input type="password" name="password" required>
+      <input type="password" name="password" placeholder="Password" required>
       <button>Login</button>
     </form>
-    """
-def get_channels():
-    import db
-    return list(db.captions.distinct("channel_id"))
+    """)
+
 
 # ---------- DASHBOARD ----------
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("admin"):
-        return redirect(url_for("login"))
+        return redirect("/")
 
     if not DB_OK:
-        return "<h3>Dashboard OK</h3><p>⚠ MongoDB not connected</p>"
+        return page("DB Error", "<h3>⚠ MongoDB not connected</h3>")
 
     import db
 
     if request.method == "POST":
         db.captions.update_one(
-            {"type": request.form["type"]},
+            {
+                "type": request.form["type"],
+                "channel_id": request.form["channel_id"]
+            },
             {"$set": {"text": request.form["caption"]}},
             upsert=True
         )
-        return redirect(url_for("dashboard"))
+        return redirect("/dashboard")
 
-    def get_caption(t):
-        d = db.captions.find_one({"type": t})
+    def get_caption(t, ch):
+        d = db.captions.find_one({"type": t, "channel_id": ch})
         return d["text"] if d else ""
 
-    return f"""
-    <h2>Media-wise Caption Control</h2>
+    return page("Dashboard", f"""
+    <h2>Channel Caption Control</h2>
 
     <form method="post">
+      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+
       <h4>📷 Photo Caption</h4>
-      <textarea name="caption" rows="3" cols="60">{get_caption("photo_caption")}</textarea>
+      <textarea name="caption">{get_caption("photo_caption","")}</textarea>
       <input type="hidden" name="type" value="photo_caption">
-      <br><button>Save</button>
+      <button>Save Photo Caption</button>
     </form><br>
 
     <form method="post">
+      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+
       <h4>🎥 Video Caption</h4>
-      <textarea name="caption" rows="3" cols="60">{get_caption("video_caption")}</textarea>
+      <textarea name="caption">{get_caption("video_caption","")}</textarea>
       <input type="hidden" name="type" value="video_caption">
-      <br><button>Save</button>
+      <button>Save Video Caption</button>
     </form><br>
 
     <form method="post">
+      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+
       <h4>📝 Text Caption</h4>
-      <textarea name="caption" rows="3" cols="60">{get_caption("text_caption")}</textarea>
+      <textarea name="caption">{get_caption("text_caption","")}</textarea>
       <input type="hidden" name="type" value="text_caption">
-      <br><button>Save</button>
+      <button>Save Text Caption</button>
     </form>
 
-    <br>
-    <a href="/buttons">Inline Buttons</a> |
+    <a href="/buttons">Inline Buttons</a>
     <a href="/logout">Logout</a>
-    """
+    """)
 
 
-# ---------- INLINE BUTTON CONTROL ----------
+# ---------- INLINE BUTTONS ----------
 @app.route("/buttons", methods=["GET", "POST"])
 def buttons():
     if not session.get("admin"):
-        return redirect(url_for("login"))
+        return redirect("/")
 
     import db
 
@@ -115,24 +161,25 @@ def buttons():
 
     rows = ""
     for b in buttons:
-        rows += f'<input name="text" value="{b["text"]}"> <input name="url" value="{b["url"]}"><br>'
+        rows += f'<input name="text" value="{b["text"]}"><input name="url" value="{b["url"]}">'
 
-    return f"""
+    return page("Buttons", f"""
     <h2>Inline Buttons</h2>
     <form method="post">
       {rows}
       <input name="text" placeholder="Button Text">
-      <input name="url" placeholder="Button URL"><br><br>
+      <input name="url" placeholder="Button URL">
       <button>Save Buttons</button>
     </form>
-    <br><a href="/dashboard">Back</a>
-    """
+    <a href="/dashboard">Back</a>
+    """)
+
 
 # ---------- LOGOUT ----------
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect("/")
 
 
 # ---------- RUN ----------
