@@ -17,17 +17,14 @@ def start(message):
 
 # ---------- INLINE BUTTON ----------
 def get_inline_keyboard():
-    if db.captions is None:
-        return None
-
-    data = db.captions.find_one({"type": "inline_button"})
+    data = db.captions.find_one({"type": "inline_buttons"})
     if not data:
         return None
 
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton(text=data["text"], url=data["url"]))
+    for b in data["buttons"]:
+        kb.add(InlineKeyboardButton(text=b["text"], url=b["url"]))
     return kb
-
 
 # ---------- TEXT POSTS ----------
 @bot.channel_post_handler(content_types=['text'])
