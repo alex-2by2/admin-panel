@@ -131,47 +131,91 @@ def buttons():
     if not session.get("admin"):
         return redirect("/")
 
-    if request.method == "POST":
-        rows = []
-        for r in request.form.get("rows","").splitlines():
-            row=[]
-            for b in r.split(","):
-                if "|" in b:
-                    t,u = b.split("|",1)
-                    row.append({"text":t.strip(),"url":u.strip()})
-            if row:
-                rows.append(row)
+    channel = request.form.get("channel") or request.args.get("channel") or "default"
 
+    if request.method == "POST":
+        rows = json.loads(request.form["data"])
         db.captions.update_one(
-            {"type":"inline_buttons","channel_id":request.form.get("channel") or "default"},
+            {"type":"inline_buttons","channel_id":channel},
             {"$set":{"rows":rows}},
             upsert=True
         )
-        return redirect("/dashboard")
+        return redirect(f"/buttons?channel={channel}")
 
-    return page("Inline Buttons", """
-    <div class="bg-white p-6 rounded shadow space-y-3">
-      <form method="post">
-        <input name="channel" placeholder="Channel ID (blank = default)"
-          class="w-full border p-2 rounded">
+    data = db.captions.find_one(
+        {"type":"inline_buttons","channel_id":channel}
+    )
+    rows = data["rows"] if data else []
 
-        <textarea name="rows" rows="5"
-          class="w-full border p-2 rounded"
-          placeholder="Row example:
-Google|https://google.com,YouTube|https://youtube.com
-Telegram|https://t.me"></textarea>
+    return page("Inline Buttons (Drag & Drop)", f"""
+<div class="bg-white p-4 rounded shadow">
+  <form method="post" onsubmit="saveData()">
+    <input type="hidden" name="channel" value="{channel}">
+    <input type="hidden" name="data" id="data">
 
-        <button class="bg-blue-600 text-white px-4 py-2 rounded mt-2">
-          Save Buttons
-        </button>
-      </form>
+    <input value="{channel}" disabled
+      class="w-full border p-2 rounded mb-3">
 
-      <p class="text-sm text-gray-500">
-        Use <b>/preview_buttons</b> in Telegram to preview.
-      </p>
+    <div id="rows">
+      {"".join(render_row(r) for r in rows)}
     </div>
-    """)
 
+    <button type="button"
+      onclick="addRow()"
+      class="bg-gray-200 px-3 py-1 rounded mt-2">
+      ➕ Add Row
+    </button>
+
+    <br><br>
+    <button class="bg-blue-600 text-white px-4 py-2 rounded">
+      💾 Save Order
+    </button>
+  </form>
+</div>
+
+<script>
+function addRow(){
+  const rows=document.getElementById("rows");
+  rows.insertAdjacentHTML("beforeend",`
+    <div class="border p-2 rounded mb-2 row" draggable="true">
+      <input placeholder="Text|URL" class="w-full border p-2 mb-1">
+      <button type="button" onclick="this.parentElement.remove()">❌</button>
+    </div>
+  `);
+  enableDrag();
+}
+
+function saveData(){
+  let rows=[];
+  document.querySelectorAll(".row").forEach(r=>{
+    let row=[];
+    r.querySelectorAll("input").forEach(i=>{
+      if(i.value.includes("|")){
+        let [t,u]=i.value.split("|");
+        row.push({text:t.trim(),url:u.trim()});
+      }
+    });
+    if(row.length) rows.push(row);
+  });
+  document.getElementById("data").value=JSON.stringify(rows);
+}
+
+function enableDrag(){
+  let dragSrc;
+  document.querySelectorAll(".row").forEach(r=>{
+    r.ondragstart=e=>dragSrc=r;
+    r.ondragover=e=>e.preventDefault();
+    r.ondrop=e=>{
+      e.preventDefault();
+      if(dragSrc!==r){
+        r.parentNode.insertBefore(dragSrc,r);
+      }
+    }
+  });
+}
+enableDrag();
+</script>
+""")
 # ---------- VIEW ALL ----------
 @app.route("/all")
 def all_items():
