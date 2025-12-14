@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, session, url_for
+from flask import Flask, request, redirect, session
 import os
 
 app = Flask(__name__)
@@ -16,7 +16,7 @@ except Exception as e:
     DB_OK = False
 
 
-# ---------- MOBILE UI WRAPPER ----------
+# ---------- MOBILE UI ----------
 def page(title, body):
     return f"""
     <html>
@@ -24,34 +24,15 @@ def page(title, body):
       <title>{title}</title>
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <style>
-        body {{
-          font-family: Arial;
-          padding: 15px;
-          max-width: 600px;
-          margin: auto;
-        }}
-        textarea, input {{
-          width: 100%;
-          padding: 10px;
-          margin: 6px 0;
-          font-size: 16px;
-        }}
-        button {{
-          width: 100%;
-          padding: 12px;
-          font-size: 18px;
-          background: #2b7cff;
-          color: white;
-          border: none;
-          border-radius: 6px;
-        }}
+        body {{ font-family: Arial; padding: 15px; max-width: 600px; margin: auto; }}
+        textarea, input {{ width: 100%; padding: 10px; margin: 6px 0; font-size: 16px; }}
+        button {{ width: 100%; padding: 12px; font-size: 18px; background: #2b7cff;
+                  color: white; border: none; border-radius: 6px; }}
         h2 {{ text-align: center; }}
         a {{ display: block; text-align: center; margin-top: 15px; }}
       </style>
     </head>
-    <body>
-      {body}
-    </body>
+    <body>{body}</body>
     </html>
     """
 
@@ -86,46 +67,44 @@ def dashboard():
     import db
 
     if request.method == "POST":
+        channel_id = request.form.get("channel_id") or "default"
+
         db.captions.update_one(
             {
                 "type": request.form["type"],
-                "channel_id": request.form["channel_id"]
+                "channel_id": channel_id
             },
             {"$set": {"text": request.form["caption"]}},
             upsert=True
         )
         return redirect("/dashboard")
 
-    def get_caption(t, ch):
-        d = db.captions.find_one({"type": t, "channel_id": ch})
-        return d["text"] if d else ""
-
-    return page("Dashboard", f"""
-    <h2>Channel Caption Control</h2>
+    return page("Dashboard", """
+    <h2>Caption Control</h2>
 
     <form method="post">
-      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
 
       <h4>📷 Photo Caption</h4>
-      <textarea name="caption">{get_caption("photo_caption","")}</textarea>
+      <textarea name="caption"></textarea>
       <input type="hidden" name="type" value="photo_caption">
       <button>Save Photo Caption</button>
     </form><br>
 
     <form method="post">
-      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
 
       <h4>🎥 Video Caption</h4>
-      <textarea name="caption">{get_caption("video_caption","")}</textarea>
+      <textarea name="caption"></textarea>
       <input type="hidden" name="type" value="video_caption">
       <button>Save Video Caption</button>
     </form><br>
 
     <form method="post">
-      <input name="channel_id" placeholder="Channel ID (-100...)" required>
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
 
       <h4>📝 Text Caption</h4>
-      <textarea name="caption">{get_caption("text_caption","")}</textarea>
+      <textarea name="caption"></textarea>
       <input type="hidden" name="type" value="text_caption">
       <button>Save Text Caption</button>
     </form>
@@ -144,32 +123,27 @@ def buttons():
     import db
 
     if request.method == "POST":
+        channel_id = request.form.get("channel_id") or "default"
         buttons = []
+
         for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
             if t and u:
                 buttons.append({"text": t, "url": u})
 
         db.captions.update_one(
-            {"type": "inline_buttons"},
+            {"type": "inline_buttons", "channel_id": channel_id},
             {"$set": {"buttons": buttons}},
             upsert=True
         )
         return redirect("/buttons")
 
-    data = db.captions.find_one({"type": "inline_buttons"})
-    buttons = data["buttons"] if data else []
-
-    rows = ""
-    for b in buttons:
-        rows += f'<input name="text" value="{b["text"]}"><input name="url" value="{b["url"]}">'
-
-    return page("Buttons", f"""
+    return page("Buttons", """
     <h2>Inline Buttons</h2>
     <form method="post">
-      {rows}
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
       <input name="text" placeholder="Button Text">
       <input name="url" placeholder="Button URL">
-      <button>Save Buttons</button>
+      <button>Save Button</button>
     </form>
     <a href="/dashboard">Back</a>
     """)
