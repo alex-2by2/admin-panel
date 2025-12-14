@@ -30,34 +30,52 @@ def login():
       <button>Login</button>
     </form>
     """
-
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("admin"):
         return redirect(url_for("login"))
 
-    if not DB_OK or not hasattr(__import__("db"), "captions"):
+    if not DB_OK:
         return "<h3>Dashboard OK</h3><p>⚠ MongoDB not connected</p>"
 
     import db
 
     if request.method == "POST":
         db.captions.update_one(
-            {"type": "channel_caption"},
-            {"$set": {"text": request.form.get("caption")}},
+            {"type": request.form["type"]},
+            {"$set": {"text": request.form["caption"]}},
             upsert=True
         )
         return redirect(url_for("dashboard"))
 
-    data = db.captions.find_one({"type": "channel_caption"})
-    current = data["text"] if data else ""
+    def get_caption(t):
+        d = db.captions.find_one({"type": t})
+        return d["text"] if d else ""
 
     return f"""
-    <h2>Channel Auto Caption Panel</h2>
+    <h2>Media-wise Caption Control</h2>
+
     <form method="post">
-      <textarea name="caption" rows="5" cols="50">{current}</textarea><br><br>
-      <button>Save</button>
+      <h4>📷 Photo Caption</h4>
+      <textarea name="caption" rows="3" cols="60">{get_caption("photo_caption")}</textarea>
+      <input type="hidden" name="type" value="photo_caption">
+      <br><button>Save Photo Caption</button>
+    </form><br>
+
+    <form method="post">
+      <h4>🎥 Video Caption</h4>
+      <textarea name="caption" rows="3" cols="60">{get_caption("video_caption")}</textarea>
+      <input type="hidden" name="type" value="video_caption">
+      <br><button>Save Video Caption</button>
+    </form><br>
+
+    <form method="post">
+      <h4>📝 Text Caption</h4>
+      <textarea name="caption" rows="3" cols="60">{get_caption("text_caption")}</textarea>
+      <input type="hidden" name="type" value="text_caption">
+      <br><button>Save Text Caption</button>
     </form>
+
     <br><a href="/logout">Logout</a>
     """
 
