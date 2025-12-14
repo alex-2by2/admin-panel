@@ -14,7 +14,7 @@ def start(message):
     bot.reply_to(message, "🤖 Channel Auto Caption Bot is running")
 
 
-# ---------- INLINE BUTTON BUILDER ----------
+# ---------- INLINE KEYBOARD ----------
 def get_inline_keyboard(channel_id):
     data = db.captions.find_one({
         "type": "inline_buttons",
@@ -28,7 +28,10 @@ def get_inline_keyboard(channel_id):
         return None
 
     kb = InlineKeyboardMarkup()
-    for row in data.get("rows", []):
+
+    # NEW FORMAT (rows)
+    rows = data.get("rows", [])
+    for row in rows:
         buttons = []
         for b in row:
             buttons.append(
@@ -94,5 +97,5 @@ def handle_video(m):
     )
 
 
-print("🤖 Bot running with row-based inline buttons")
+print("🤖 Bot running with ROW-BASED inline buttons")
 bot.infinity_polling()
