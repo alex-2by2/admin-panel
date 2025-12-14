@@ -32,7 +32,9 @@ def login():
       <button>Login</button>
     </form>
     """
-
+def get_channels():
+    import db
+    return list(db.captions.distinct("channel_id"))
 
 # ---------- DASHBOARD ----------
 @app.route("/dashboard", methods=["GET", "POST"])
