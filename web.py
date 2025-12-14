@@ -31,7 +31,7 @@ def page(title, body):
         table {{ width: 100%; border-collapse: collapse; }}
         th, td {{ border: 1px solid #ccc; padding: 6px; font-size: 14px; }}
         th {{ background: #eee; }}
-        a {{ margin-right: 10px; }}
+        a {{ margin-right: 10px; display: inline-block; }}
       </style>
     </head>
     <body>{body}</body>
@@ -57,7 +57,7 @@ def login():
     """)
 
 
-# ---------- DASHBOARD (ADD ONLY) ----------
+# ---------- DASHBOARD ----------
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("admin"):
@@ -70,7 +70,6 @@ def dashboard():
 
     if request.method == "POST":
         channel_id = request.form.get("channel_id") or "default"
-
         db.captions.update_one(
             {"type": request.form["type"], "channel_id": channel_id},
             {"$set": {"text": request.form["caption"]}},
@@ -98,6 +97,44 @@ def dashboard():
     <a href="/buttons">🔘 Inline Buttons</a>
     <a href="/export">⬇ Export Captions</a>
     <a href="/logout">Logout</a>
+    """)
+
+
+# ---------- INLINE BUTTONS ----------
+@app.route("/buttons", methods=["GET", "POST"])
+def buttons():
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+
+    if request.method == "POST":
+        channel_id = request.form.get("channel_id") or "default"
+        buttons = []
+
+        for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
+            if t and u:
+                buttons.append({"text": t, "url": u})
+
+        db.captions.update_one(
+            {"type": "inline_buttons", "channel_id": channel_id},
+            {"$set": {"buttons": buttons}},
+            upsert=True
+        )
+        return redirect("/buttons")
+
+    return page("Inline Buttons", """
+    <h2>Inline Buttons</h2>
+
+    <form method="post">
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
+      <input name="text" placeholder="Button Text">
+      <input name="url" placeholder="Button URL (https://...)">
+      <button>Save Button</button>
+    </form>
+
+    <p><b>Note:</b> URL must be FULL https link</p>
+    <a href="/dashboard">Back</a>
     """)
 
 
