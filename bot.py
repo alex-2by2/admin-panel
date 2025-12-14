@@ -12,7 +12,18 @@ db.init_db()
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.reply_to(message, "🤖 Channel Auto Caption Bot is running")
+@bot.message_handler(commands=["preview_buttons"])
+def preview_buttons(m):
+    kb = get_inline_keyboard("default")
+    if not kb:
+        bot.reply_to(m, "No buttons configured")
+        return
 
+    bot.send_message(
+        m.chat.id,
+        "🔘 Button Preview",
+        reply_markup=kb
+    )
 
 # ---------- INLINE KEYBOARD ----------
 def get_inline_keyboard(channel_id):
