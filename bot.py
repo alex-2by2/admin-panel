@@ -9,13 +9,27 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 db.init_db()
 
 
+# ---------- START ----------
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.reply_to(message, "🤖 Channel Auto Caption Bot is running")
 
 
-def get_inline_keyboard():
-    data = db.captions.find_one({"type": "inline_buttons"})
+# ---------- INLINE BUTTON (DEFAULT + CHANNEL) ----------
+def get_inline_keyboard(channel_id):
+    # 1️⃣ Channel specific
+    data = db.captions.find_one({
+        "type": "inline_buttons",
+        "channel_id": str(channel_id)
+    })
+
+    # 2️⃣ Default fallback
+    if not data:
+        data = db.captions.find_one({
+            "type": "inline_buttons",
+            "channel_id": "default"
+        })
+
     if not data:
         return None
 
@@ -25,55 +39,80 @@ def get_inline_keyboard():
     return kb
 
 
+# ---------- CAPTION RESOLVER (IMPORTANT) ----------
 def get_caption(caption_type, channel_id):
+    # 1️⃣ Channel specific caption
     doc = db.captions.find_one({
         "type": caption_type,
         "channel_id": str(channel_id)
     })
-    return doc["text"] if doc else None
+    if doc:
+        return doc["text"]
+
+    # 2️⃣ Default caption
+    doc = db.captions.find_one({
+        "type": caption_type,
+        "channel_id": "default"
+    })
+    if doc:
+        return doc["text"]
+
+    return None
 
 
+# ---------- TEXT POSTS ----------
 @bot.channel_post_handler(content_types=["text"])
-def text_handler(m):
+def handle_text(m):
     caption = get_caption("text_caption", m.chat.id)
     if not caption:
         return
 
-    bot.edit_message_text(
-        chat_id=m.chat.id,
-        message_id=m.message_id,
-        text=m.text + "\n\n" + caption,
-        reply_markup=get_inline_keyboard()
-    )
+    try:
+        bot.edit_message_text(
+            chat_id=m.chat.id,
+            message_id=m.message_id,
+            text=m.text + "\n\n" + caption,
+            reply_markup=get_inline_keyboard(m.chat.id)
+        )
+    except Exception as e:
+        print("Text error:", e)
 
 
+# ---------- PHOTO POSTS ----------
 @bot.channel_post_handler(content_types=["photo"])
-def photo_handler(m):
+def handle_photo(m):
     caption = get_caption("photo_caption", m.chat.id)
     if not caption:
         return
 
-    bot.edit_message_caption(
-        chat_id=m.chat.id,
-        message_id=m.message_id,
-        caption=caption,
-        reply_markup=get_inline_keyboard()
-    )
+    try:
+        bot.edit_message_caption(
+            chat_id=m.chat.id,
+            message_id=m.message_id,
+            caption=caption,
+            reply_markup=get_inline_keyboard(m.chat.id)
+        )
+    except Exception as e:
+        print("Photo error:", e)
 
 
+# ---------- VIDEO POSTS ----------
 @bot.channel_post_handler(content_types=["video"])
-def video_handler(m):
+def handle_video(m):
     caption = get_caption("video_caption", m.chat.id)
     if not caption:
         return
 
-    bot.edit_message_caption(
-        chat_id=m.chat.id,
-        message_id=m.message_id,
-        caption=caption,
-        reply_markup=get_inline_keyboard()
-    )
+    try:
+        bot.edit_message_caption(
+            chat_id=m.chat.id,
+            message_id=m.message_id,
+            caption=caption,
+            reply_markup=get_inline_keyboard(m.chat.id)
+        )
+    except Exception as e:
+        print("Video error:", e)
 
 
-print("🤖 Bot running with multi-channel captions + mobile admin UI")
+print("🤖 Bot running with DEFAULT + CHANNEL captions")
 bot.infinity_polling()
