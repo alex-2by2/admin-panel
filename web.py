@@ -1,5 +1,6 @@
-from flask import Flask, request, redirect, session
-import os
+from flask import Flask, request, redirect, session, Response
+from bson import ObjectId
+import os, json
 
 app = Flask(__name__)
 app.secret_key = "safe-secret-key"
@@ -24,12 +25,13 @@ def page(title, body):
       <title>{title}</title>
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <style>
-        body {{ font-family: Arial; padding: 15px; max-width: 600px; margin: auto; }}
-        textarea, input {{ width: 100%; padding: 10px; margin: 6px 0; font-size: 16px; }}
-        button {{ width: 100%; padding: 12px; font-size: 18px; background: #2b7cff;
-                  color: white; border: none; border-radius: 6px; }}
-        h2 {{ text-align: center; }}
-        a {{ display: block; text-align: center; margin-top: 15px; }}
+        body {{ font-family: Arial; padding: 15px; max-width: 900px; margin: auto; }}
+        textarea, input, select {{ width: 100%; padding: 10px; margin: 6px 0; font-size: 16px; }}
+        button {{ padding: 8px 14px; font-size: 15px; margin-top: 6px; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th, td {{ border: 1px solid #ccc; padding: 6px; font-size: 14px; }}
+        th {{ background: #eee; }}
+        a {{ margin-right: 10px; }}
       </style>
     </head>
     <body>{body}</body>
@@ -55,7 +57,7 @@ def login():
     """)
 
 
-# ---------- DASHBOARD ----------
+# ---------- DASHBOARD (ADD ONLY) ----------
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     if not session.get("admin"):
@@ -70,83 +72,137 @@ def dashboard():
         channel_id = request.form.get("channel_id") or "default"
 
         db.captions.update_one(
-            {
-                "type": request.form["type"],
-                "channel_id": channel_id
-            },
+            {"type": request.form["type"], "channel_id": channel_id},
             {"$set": {"text": request.form["caption"]}},
             upsert=True
         )
         return redirect("/dashboard")
 
     return page("Dashboard", """
-    <h2>Caption Control</h2>
+    <h2>Add Caption</h2>
 
     <form method="post">
       <input name="channel_id" placeholder="Channel ID (empty = default)">
-
-      <h4>📷 Photo Caption</h4>
-      <textarea name="caption"></textarea>
-      <input type="hidden" name="type" value="photo_caption">
-      <button>Save Photo Caption</button>
-    </form><br>
-
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (empty = default)">
-
-      <h4>🎥 Video Caption</h4>
-      <textarea name="caption"></textarea>
-      <input type="hidden" name="type" value="video_caption">
-      <button>Save Video Caption</button>
-    </form><br>
-
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (empty = default)">
-
-      <h4>📝 Text Caption</h4>
-      <textarea name="caption"></textarea>
-      <input type="hidden" name="type" value="text_caption">
-      <button>Save Text Caption</button>
+      <select name="type">
+        <option value="photo_caption">Photo</option>
+        <option value="video_caption">Video</option>
+        <option value="text_caption">Text</option>
+      </select>
+      <textarea name="caption" placeholder="Caption text"></textarea>
+      <button>Save Caption</button>
     </form>
 
-    <a href="/buttons">Inline Buttons</a>
+    <hr>
+    <a href="/all">📋 View All Captions</a>
+    <a href="/channels">📡 Saved Channel IDs</a>
+    <a href="/buttons">🔘 Inline Buttons</a>
+    <a href="/export">⬇ Export Captions</a>
     <a href="/logout">Logout</a>
     """)
 
 
-# ---------- INLINE BUTTONS ----------
-@app.route("/buttons", methods=["GET", "POST"])
-def buttons():
+# ---------- VIEW ALL CAPTIONS ----------
+@app.route("/all")
+def all_captions():
     if not session.get("admin"):
         return redirect("/")
 
     import db
+    rows = ""
+    for d in db.captions.find():
+        rows += f"""
+        <tr>
+          <td>{d.get("channel_id")}</td>
+          <td>{d.get("type")}</td>
+          <td>{str(d.get("text",""))[:50]}</td>
+          <td>
+            <a href="/edit/{d['_id']}">Edit</a>
+            <a href="/delete/{d['_id']}">Delete</a>
+          </td>
+        </tr>
+        """
 
-    if request.method == "POST":
-        channel_id = request.form.get("channel_id") or "default"
-        buttons = []
-
-        for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
-            if t and u:
-                buttons.append({"text": t, "url": u})
-
-        db.captions.update_one(
-            {"type": "inline_buttons", "channel_id": channel_id},
-            {"$set": {"buttons": buttons}},
-            upsert=True
-        )
-        return redirect("/buttons")
-
-    return page("Buttons", """
-    <h2>Inline Buttons</h2>
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (empty = default)">
-      <input name="text" placeholder="Button Text">
-      <input name="url" placeholder="Button URL">
-      <button>Save Button</button>
-    </form>
+    return page("All Captions", f"""
+    <h2>All Saved Captions</h2>
+    <table>
+      <tr><th>Channel</th><th>Type</th><th>Text</th><th>Action</th></tr>
+      {rows}
+    </table>
     <a href="/dashboard">Back</a>
     """)
+
+
+# ---------- EDIT ----------
+@app.route("/edit/<id>", methods=["GET", "POST"])
+def edit(id):
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+    doc = db.captions.find_one({"_id": ObjectId(id)})
+
+    if request.method == "POST":
+        db.captions.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"text": request.form["caption"]}}
+        )
+        return redirect("/all")
+
+    return page("Edit", f"""
+    <h2>Edit Caption</h2>
+    <p><b>Channel:</b> {doc.get("channel_id")}</p>
+    <p><b>Type:</b> {doc.get("type")}</p>
+
+    <form method="post">
+      <textarea name="caption">{doc.get("text","")}</textarea>
+      <button>Save</button>
+    </form>
+    <a href="/all">Back</a>
+    """)
+
+
+# ---------- DELETE ----------
+@app.route("/delete/<id>")
+def delete(id):
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+    db.captions.delete_one({"_id": ObjectId(id)})
+    return redirect("/all")
+
+
+# ---------- CHANNEL LIST ----------
+@app.route("/channels")
+def channels():
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+    ch = db.captions.distinct("channel_id")
+    items = "".join(f"<li>{c}</li>" for c in ch)
+
+    return page("Channels", f"""
+    <h2>Saved Channel IDs</h2>
+    <ul>{items}</ul>
+    <a href="/dashboard">Back</a>
+    """)
+
+
+# ---------- EXPORT ----------
+@app.route("/export")
+def export():
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+    data = list(db.captions.find({}, {"_id": 0}))
+
+    return Response(
+        json.dumps(data, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment;filename=captions_backup.json"}
+    )
 
 
 # ---------- LOGOUT ----------
