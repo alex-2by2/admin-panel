@@ -42,14 +42,23 @@ def get_inline_keyboard(channel_id):
             "channel_id": "default"
         })
 
-    if not data:
+    if not data or "rows" not in data:
         return None
 
     kb = InlineKeyboardMarkup()
-    for b in data["buttons"]:
-        kb.add(InlineKeyboardButton(text=b["text"], url=b["url"]))
-    return kb
 
+    for row in data["rows"]:
+        buttons = []
+        for b in row:
+            buttons.append(
+                InlineKeyboardButton(
+                    text=b["text"],
+                    url=b["url"]
+                )
+            )
+        kb.row(*buttons)
+
+    return kb
 
 # ---------- CAPTION RESOLVER (IMPORTANT) ----------
 def get_caption(caption_type, channel_id):
