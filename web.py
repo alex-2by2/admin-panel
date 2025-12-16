@@ -92,6 +92,9 @@ def dashboard():
 <a href="/export" class="bg-white p-4 rounded shadow hover:bg-blue-50">
 ⬇ Export Backup
 </a>
+<a href="/bulk-delete" class="bg-red-100 p-4 rounded shadow hover:bg-red-200">
+🗑 Bulk Delete (Per Channel)
+</a>
 
 <a href="/logout" class="bg-red-500 text-white p-4 rounded shadow">
 Logout
@@ -312,7 +315,44 @@ def channels():
 <a href="/dashboard" class="text-blue-600 block mt-3">← Back</a>
 </div>
 """)
+# ---------- BULK DELETE PER CHANNEL ----------
+@app.route("/bulk-delete", methods=["GET", "POST"])
+def bulk_delete():
+    if not session.get("admin"):
+        return redirect("/")
 
+    import db
+
+    if request.method == "POST":
+        channel_id = request.form.get("channel_id")
+
+        if channel_id:
+            db.captions.delete_many({"channel_id": channel_id})
+
+        return redirect("/dashboard")
+
+    return page("Bulk Delete", """
+    <div class="bg-white p-6 rounded shadow max-w-md mx-auto">
+      <form method="post" class="space-y-3">
+        <input name="channel_id"
+          placeholder="Channel ID (example: -1001234567890)"
+          class="w-full border p-2 rounded">
+
+        <button class="bg-red-600 text-white px-4 py-2 rounded w-full">
+          ⚠ Delete ALL captions of this channel
+        </button>
+      </form>
+
+      <p class="text-sm text-gray-500 mt-3">
+        This will permanently delete:
+        photo, video, text captions & inline buttons.
+      </p>
+
+      <a href="/dashboard" class="text-blue-600 block mt-4">
+        ← Back
+      </a>
+    </div>
+    """)
 
 # ---------- EXPORT ----------
 @app.route("/export")
