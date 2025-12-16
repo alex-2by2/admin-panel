@@ -163,124 +163,59 @@ def buttons():
 
     import db
 
-    channel_id = (
-        request.form.get("channel_id")
-        or request.args.get("channel")
-        or "default"
-    )
+    channel_id = request.form.get("channel_id") or "default"
 
     # ---------- SAVE ----------
     if request.method == "POST":
-        raw = request.form.get("data", "")
+        buttons = []
 
-        try:
-            rows = json.loads(raw) if raw else []
-        except Exception as e:
-            print("Button JSON error:", e)
-            rows = []
+        texts = request.form.getlist("text")
+        urls = request.form.getlist("url")
+
+        for t, u in zip(texts, urls):
+            if t and u:
+                buttons.append({"text": t.strip(), "url": u.strip()})
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
-            {"$set": {"rows": rows}},
+            {"$set": {"buttons": buttons}},
             upsert=True
         )
-        return redirect(f"/buttons?channel={channel_id}")
+        return redirect("/buttons")
 
     # ---------- LOAD ----------
     doc = db.captions.find_one(
         {"type": "inline_buttons", "channel_id": channel_id}
     )
+    buttons = doc["buttons"] if doc and "buttons" in doc else []
 
-    rows = []
-
-    if doc:
-        # NEW FORMAT
-        if "rows" in doc:
-            rows = doc["rows"]
-
-        # OLD FORMAT AUTO-CONVERT
-        elif "buttons" in doc:
-            rows = [[b] for b in doc["buttons"]]
-
-    rows_html = ""
-    for r in rows:
-        line = ", ".join(f'{b["text"]}|{b["url"]}' for b in r)
-        rows_html += f"""
-        <div class="row" draggable="true"
-             style="border:1px solid #ccc;padding:10px;margin-bottom:6px;background:#fafafa;">
-            <input value="{line}" style="width:100%;padding:6px">
-        </div>
+    rows = ""
+    for b in buttons:
+        rows += f"""
+        <input name="text" value="{b['text']}" placeholder="Button Text">
+        <input name="url" value="{b['url']}" placeholder="https://example.com">
+        <hr>
         """
 
-    return page("Inline Buttons (Drag & Drop)", f"""
-    <h2>Inline Buttons – Drag & Drop</h2>
+    return page("Inline Buttons", f"""
+    <h2>Inline Buttons (Stable Mode)</h2>
 
-    <form method="post" onsubmit="saveData()">
-      <input type="hidden" name="channel_id" value="{channel_id}">
-      <input type="hidden" name="data" id="data">
+    <form method="post">
+      <input name="channel_id" placeholder="Channel ID (blank = default)">
+      <hr>
 
-      <p><b>Channel:</b> {channel_id}</p>
+      {rows}
 
-      <div id="rows">
-        {rows_html}
-      </div>
+      <input name="text" placeholder="Button Text">
+      <input name="url" placeholder="https://example.com">
 
-      <button type="button" onclick="addRow()">➕ Add Row</button>
       <br><br>
-      <button>💾 Save Buttons</button>
+      <button>Save Buttons</button>
     </form>
 
-<script>
-let dragSrc = null;
-
-function enableDrag() {{
-  document.querySelectorAll(".row").forEach(row => {{
-    row.ondragstart = () => dragSrc = row;
-    row.ondragover = e => e.preventDefault();
-    row.ondrop = e => {{
-      e.preventDefault();
-      if (dragSrc && dragSrc !== row) {{
-        row.parentNode.insertBefore(dragSrc, row);
-      }}
-    }};
-  }});
-}}
-
-function addRow() {{
-  const div = document.createElement("div");
-  div.className = "row";
-  div.draggable = true;
-  div.style.border = "1px solid #ccc";
-  div.style.padding = "10px";
-  div.style.marginBottom = "6px";
-  div.style.background = "#fafafa";
-  div.innerHTML =
-    '<input placeholder="Text|URL, Text|URL" style="width:100%;padding:6px">';
-  document.getElementById("rows").appendChild(div);
-  enableDrag();
-}}
-
-function saveData() {{
-  let rows = [];
-  document.querySelectorAll(".row input").forEach(i => {{
-    let row = [];
-    i.value.split(",").forEach(p => {{
-      if (p.includes("|")) {{
-        let parts = p.split("|");
-        row.push({{text: parts[0].trim(), url: parts[1].trim()}});
-      }}
-    }});
-    if (row.length) rows.push(row);
-  }});
-  document.getElementById("data").value = JSON.stringify(rows);
-}}
-
-enableDrag();
-</script>
-
-<a href="/dashboard">⬅ Back</a>
-""")
-
+    <p><b>Note:</b> Buttons appear in one column (safe mode)</p>
+    <a href="/dashboard">⬅ Back</a>
+    """)
 # ---------- EDIT ----------
 @app.route("/edit/<id>", methods=["GET", "POST"])
 def edit(id):
