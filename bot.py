@@ -75,6 +75,9 @@ def get_caption(caption_type, channel_id):
 # ---------- TEXT POSTS ----------
 @bot.channel_post_handler(content_types=["text"])
 def handle_text(m):
+    if not is_channel_enabled(m.chat.id):
+        return
+
     caption = get_caption("text_caption", m.chat.id)
     if not caption:
         return
@@ -89,10 +92,12 @@ def handle_text(m):
     except Exception as e:
         print("Text error:", e)
 
-
 # ---------- PHOTO POSTS ----------
 @bot.channel_post_handler(content_types=["photo"])
 def handle_photo(m):
+    if not is_channel_enabled(m.chat.id):
+        return
+
     caption = get_caption("photo_caption", m.chat.id)
     if not caption:
         return
@@ -107,10 +112,12 @@ def handle_photo(m):
     except Exception as e:
         print("Photo error:", e)
 
-
 # ---------- VIDEO POSTS ----------
 @bot.channel_post_handler(content_types=["video"])
 def handle_video(m):
+    if not is_channel_enabled(m.chat.id):
+        return
+
     caption = get_caption("video_caption", m.chat.id)
     if not caption:
         return
@@ -124,7 +131,6 @@ def handle_video(m):
         )
     except Exception as e:
         print("Video error:", e)
-
 
 print("🤖 Bot running with DEFAULT + CHANNEL captions")
 bot.infinity_polling()
