@@ -165,54 +165,54 @@ def buttons():
 
     if request.method == "POST":
         channel_id = request.form.get("channel_id") or "default"
-        buttons = []
+        rows = []
 
-        texts = request.form.getlist("text")
-        urls = request.form.getlist("url")
+        raw = request.form.get("rows", "").strip().split("\n")
 
-        for t, u in zip(texts, urls):
-            if t and u:
-                buttons.append({"text": t, "url": u})
+        for line in raw:
+            row = []
+            parts = line.split(",")
+            for p in parts:
+                if "|" in p:
+                    text, url = p.split("|", 1)
+                    row.append({
+                        "text": text.strip(),
+                        "url": url.strip()
+                    })
+            if row:
+                rows.append(row)
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
-            {"$set": {"buttons": buttons}},
+            {"$set": {"rows": rows}},
             upsert=True
         )
+
         return redirect("/buttons")
 
-    return page("Inline Buttons", """
-<div class="bg-white p-6 rounded shadow">
+    return page("Inline Buttons (Multiple per Row)", """
+    <h2>Inline Buttons</h2>
 
-<form method="post" class="space-y-3">
+    <form method="post">
+      <input name="channel_id" placeholder="Channel ID (empty = default)">
 
-<input name="channel_id"
-  placeholder="Channel ID (empty = default)"
-  class="w-full border p-2 rounded">
+      <textarea name="rows" rows="6"
+        placeholder="FORMAT:
+Button1|https://link1, Button2|https://link2
+Button3|https://link3"></textarea>
 
-<input name="text"
-  placeholder="Button Text"
-  class="w-full border p-2 rounded">
+      <button>Save Buttons</button>
+    </form>
 
-<input name="url"
-  placeholder="Button URL (https://...)"
-  class="w-full border p-2 rounded">
+    <p>
+      <b>How it works:</b><br>
+      • New line = new row<br>
+      • Comma = multiple buttons in same row<br>
+      • Use <code>Text|URL</code>
+    </p>
 
-<button class="bg-blue-600 text-white px-4 py-2 rounded">
-Save Button
-</button>
-
-</form>
-
-<p class="text-sm text-gray-500 mt-2">
-Add one button at a time (safe mode)
-</p>
-
-<a href="/dashboard" class="text-blue-600 block mt-3">← Back</a>
-
-</div>
-""")
-
+    <a href="/dashboard">Back</a>
+    """)
 
 # ---------- VIEW ALL ----------
 @app.route("/all")
