@@ -163,10 +163,21 @@ def buttons():
 
     import db
 
-    channel_id = request.form.get("channel_id") or request.args.get("channel") or "default"
+    channel_id = (
+        request.form.get("channel_id")
+        or request.args.get("channel")
+        or "default"
+    )
 
+    # ---------- SAVE ----------
     if request.method == "POST":
-        rows = json.loads(request.form["data"])
+        raw = request.form.get("data", "")
+
+        try:
+            rows = json.loads(raw) if raw else []
+        except Exception as e:
+            print("Button JSON error:", e)
+            rows = []
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
@@ -175,22 +186,34 @@ def buttons():
         )
         return redirect(f"/buttons?channel={channel_id}")
 
-    data = db.captions.find_one(
+    # ---------- LOAD ----------
+    doc = db.captions.find_one(
         {"type": "inline_buttons", "channel_id": channel_id}
     )
-    rows = data["rows"] if data else []
+
+    rows = []
+
+    if doc:
+        # NEW FORMAT
+        if "rows" in doc:
+            rows = doc["rows"]
+
+        # OLD FORMAT AUTO-CONVERT
+        elif "buttons" in doc:
+            rows = [[b] for b in doc["buttons"]]
 
     rows_html = ""
     for r in rows:
         line = ", ".join(f'{b["text"]}|{b["url"]}' for b in r)
         rows_html += f"""
-        <div class="row" draggable="true" style="border:1px solid #ccc;padding:10px;margin-bottom:6px;">
+        <div class="row" draggable="true"
+             style="border:1px solid #ccc;padding:10px;margin-bottom:6px;background:#fafafa;">
             <input value="{line}" style="width:100%;padding:6px">
         </div>
         """
 
     return page("Inline Buttons (Drag & Drop)", f"""
-    <h2>Drag & Drop Button Rows</h2>
+    <h2>Inline Buttons – Drag & Drop</h2>
 
     <form method="post" onsubmit="saveData()">
       <input type="hidden" name="channel_id" value="{channel_id}">
@@ -204,7 +227,7 @@ def buttons():
 
       <button type="button" onclick="addRow()">➕ Add Row</button>
       <br><br>
-      <button>💾 Save Order</button>
+      <button>💾 Save Buttons</button>
     </form>
 
 <script>
@@ -212,7 +235,7 @@ let dragSrc = null;
 
 function enableDrag() {{
   document.querySelectorAll(".row").forEach(row => {{
-    row.ondragstart = e => dragSrc = row;
+    row.ondragstart = () => dragSrc = row;
     row.ondragover = e => e.preventDefault();
     row.ondrop = e => {{
       e.preventDefault();
@@ -230,7 +253,9 @@ function addRow() {{
   div.style.border = "1px solid #ccc";
   div.style.padding = "10px";
   div.style.marginBottom = "6px";
-  div.innerHTML = '<input placeholder="Text|URL, Text|URL" style="width:100%;padding:6px">';
+  div.style.background = "#fafafa";
+  div.innerHTML =
+    '<input placeholder="Text|URL, Text|URL" style="width:100%;padding:6px">';
   document.getElementById("rows").appendChild(div);
   enableDrag();
 }}
@@ -253,46 +278,8 @@ function saveData() {{
 enableDrag();
 </script>
 
-<a href="/dashboard">Back</a>
+<a href="/dashboard">⬅ Back</a>
 """)
-# ---------- VIEW ALL ----------
-@app.route("/all")
-def all_captions():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-
-    rows = ""
-    for d in db.captions.find():
-        rows += f"""
-<tr class="border-b">
-<td class="p-2">{d.get("channel_id")}</td>
-<td class="p-2">{d.get("type")}</td>
-<td class="p-2">{str(d.get("text",""))[:40]}</td>
-<td class="p-2">
-<a class="text-blue-600" href="/edit/{d['_id']}">Edit</a> |
-<a class="text-red-600" href="/delete/{d['_id']}">Delete</a>
-</td>
-</tr>
-"""
-
-    return page("All Captions", f"""
-<div class="bg-white p-4 rounded shadow overflow-x-auto">
-<table class="w-full text-sm">
-<tr class="bg-gray-200">
-<th class="p-2">Channel</th>
-<th class="p-2">Type</th>
-<th class="p-2">Text</th>
-<th class="p-2">Action</th>
-</tr>
-{rows}
-</table>
-
-<a href="/dashboard" class="text-blue-600 block mt-3">← Back</a>
-</div>
-""")
-
 
 # ---------- EDIT ----------
 @app.route("/edit/<id>", methods=["GET", "POST"])
