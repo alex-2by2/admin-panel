@@ -163,57 +163,98 @@ def buttons():
 
     import db
 
+    channel_id = request.form.get("channel_id") or request.args.get("channel") or "default"
+
     if request.method == "POST":
-        channel_id = request.form.get("channel_id") or "default"
-        rows = []
-
-        raw = request.form.get("rows", "").strip().split("\n")
-
-        for line in raw:
-            row = []
-            parts = line.split(",")
-            for p in parts:
-                if "|" in p:
-                    text, url = p.split("|", 1)
-                    row.append({
-                        "text": text.strip(),
-                        "url": url.strip()
-                    })
-            if row:
-                rows.append(row)
+        rows = json.loads(request.form["data"])
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
             {"$set": {"rows": rows}},
             upsert=True
         )
+        return redirect(f"/buttons?channel={channel_id}")
 
-        return redirect("/buttons")
+    data = db.captions.find_one(
+        {"type": "inline_buttons", "channel_id": channel_id}
+    )
+    rows = data["rows"] if data else []
 
-    return page("Inline Buttons (Multiple per Row)", """
-    <h2>Inline Buttons</h2>
+    rows_html = ""
+    for r in rows:
+        line = ", ".join(f'{b["text"]}|{b["url"]}' for b in r)
+        rows_html += f"""
+        <div class="row" draggable="true" style="border:1px solid #ccc;padding:10px;margin-bottom:6px;">
+            <input value="{line}" style="width:100%;padding:6px">
+        </div>
+        """
 
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (empty = default)">
+    return page("Inline Buttons (Drag & Drop)", f"""
+    <h2>Drag & Drop Button Rows</h2>
 
-      <textarea name="rows" rows="6"
-        placeholder="FORMAT:
-Button1|https://link1, Button2|https://link2
-Button3|https://link3"></textarea>
+    <form method="post" onsubmit="saveData()">
+      <input type="hidden" name="channel_id" value="{channel_id}">
+      <input type="hidden" name="data" id="data">
 
-      <button>Save Buttons</button>
+      <p><b>Channel:</b> {channel_id}</p>
+
+      <div id="rows">
+        {rows_html}
+      </div>
+
+      <button type="button" onclick="addRow()">➕ Add Row</button>
+      <br><br>
+      <button>💾 Save Order</button>
     </form>
 
-    <p>
-      <b>How it works:</b><br>
-      • New line = new row<br>
-      • Comma = multiple buttons in same row<br>
-      • Use <code>Text|URL</code>
-    </p>
+<script>
+let dragSrc = null;
 
-    <a href="/dashboard">Back</a>
-    """)
+function enableDrag() {{
+  document.querySelectorAll(".row").forEach(row => {{
+    row.ondragstart = e => dragSrc = row;
+    row.ondragover = e => e.preventDefault();
+    row.ondrop = e => {{
+      e.preventDefault();
+      if (dragSrc && dragSrc !== row) {{
+        row.parentNode.insertBefore(dragSrc, row);
+      }}
+    }};
+  }});
+}}
 
+function addRow() {{
+  const div = document.createElement("div");
+  div.className = "row";
+  div.draggable = true;
+  div.style.border = "1px solid #ccc";
+  div.style.padding = "10px";
+  div.style.marginBottom = "6px";
+  div.innerHTML = '<input placeholder="Text|URL, Text|URL" style="width:100%;padding:6px">';
+  document.getElementById("rows").appendChild(div);
+  enableDrag();
+}}
+
+function saveData() {{
+  let rows = [];
+  document.querySelectorAll(".row input").forEach(i => {{
+    let row = [];
+    i.value.split(",").forEach(p => {{
+      if (p.includes("|")) {{
+        let parts = p.split("|");
+        row.push({{text: parts[0].trim(), url: parts[1].trim()}});
+      }}
+    }});
+    if (row.length) rows.push(row);
+  }});
+  document.getElementById("data").value = JSON.stringify(rows);
+}}
+
+enableDrag();
+</script>
+
+<a href="/dashboard">Back</a>
+""")
 # ---------- VIEW ALL ----------
 @app.route("/all")
 def all_captions():
