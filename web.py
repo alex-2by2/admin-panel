@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, session, Response
 from bson import ObjectId
-import os, json
+import os, json, html
 
 app = Flask(__name__)
 app.secret_key = "safe-secret-key"
@@ -17,7 +17,7 @@ except Exception as e:
     DB_OK = False
 
 
-# ---------- TAILWIND PAGE ----------
+# ---------- PAGE ----------
 def page(title, body):
     return f"""
 <!doctype html>
@@ -73,32 +73,12 @@ def dashboard():
     return page("Dashboard", """
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-<a href="/add" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-➕ Add Caption
-</a>
-
-<a href="/buttons" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-🔘 Inline Buttons
-</a>
-
-<a href="/all" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-📋 View All Captions
-</a>
-
-<a href="/channels" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-📡 Saved Channel IDs
-</a>
-
-<a href="/export" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-⬇ Export Backup
-</a>
-<a href="/bulk-delete" class="bg-red-100 p-4 rounded shadow hover:bg-red-200">
-🗑 Bulk Delete (Per Channel)
-</a>
-<a href="/channel-toggle" class="bg-white p-4 rounded shadow hover:bg-blue-50">
-🚦 Enable / Disable Channel
-</a>
-
+<a href="/add" class="bg-white p-4 rounded shadow">➕ Add Caption</a>
+<a href="/buttons" class="bg-white p-4 rounded shadow">🔘 Inline Buttons</a>
+<a href="/all" class="bg-white p-4 rounded shadow">📋 View All</a>
+<a href="/channels" class="bg-white p-4 rounded shadow">📡 Channels</a>
+<a href="/bulk-delete" class="bg-red-100 p-4 rounded shadow">🗑 Bulk Delete</a>
+<a href="/export" class="bg-white p-4 rounded shadow">⬇ Export</a>
 
 <a href="/logout" class="bg-red-500 text-white p-4 rounded shadow">
 Logout
@@ -131,9 +111,8 @@ def add():
 <div class="bg-white p-6 rounded shadow">
 <form method="post" class="space-y-3">
 
-<input name="channel_id"
-  placeholder="Channel ID (empty = default)"
-  class="w-full border p-2 rounded">
+<input name="channel_id" placeholder="Channel ID (default empty)"
+ class="w-full border p-2 rounded">
 
 <select name="type" class="w-full border p-2 rounded">
   <option value="photo_caption">Photo</option>
@@ -141,10 +120,9 @@ def add():
   <option value="text_caption">Text</option>
 </select>
 
-<textarea name="text"
-  rows="4"
-  placeholder="Caption text"
-  class="w-full border p-2 rounded"></textarea>
+<textarea name="text" rows="4"
+ class="w-full border p-2 rounded"
+ placeholder="Caption text"></textarea>
 
 <button class="bg-blue-600 text-white px-4 py-2 rounded">
 Save Caption
@@ -165,16 +143,18 @@ def buttons():
 
     channel_id = request.form.get("channel_id") or "default"
 
-    # ---------- SAVE ----------
     if request.method == "POST":
         buttons = []
 
-        texts = request.form.getlist("text")
-        urls = request.form.getlist("url")
-
-        for t, u in zip(texts, urls):
+        for t, u in zip(
+            request.form.getlist("text"),
+            request.form.getlist("url")
+        ):
             if t and u:
-                buttons.append({"text": t.strip(), "url": u.strip()})
+                buttons.append({
+                    "text": t.strip(),
+                    "url": u.strip()
+                })
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
@@ -183,74 +163,79 @@ def buttons():
         )
         return redirect("/buttons")
 
-    # ---------- LOAD ----------
     doc = db.captions.find_one(
         {"type": "inline_buttons", "channel_id": channel_id}
     )
-    buttons = doc["buttons"] if doc and "buttons" in doc else []
+    buttons = doc["buttons"] if doc else []
 
     rows = ""
     for b in buttons:
         rows += f"""
-        <input name="text" value="{b['text']}" placeholder="Button Text">
-        <input name="url" value="{b['url']}" placeholder="https://example.com">
-        <hr>
-        """
+<input name="text" value="{html.escape(b.get('text',''))}"
+ class="w-full border p-2 rounded mb-1">
+<input name="url" value="{html.escape(b.get('url',''))}"
+ class="w-full border p-2 rounded mb-3">
+<hr>
+"""
 
     return page("Inline Buttons", f"""
-    <h2>Inline Buttons (Stable Mode)</h2>
-
-    <form method="post">
-      <input name="channel_id" placeholder="Channel ID (blank = default)">
-      <hr>
-
-      {rows}
-
-      <input name="text" placeholder="Button Text">
-      <input name="url" placeholder="https://example.com">
-
-      <br><br>
-      <button>Save Buttons</button>
-    </form>
-
-    <p><b>Note:</b> Buttons appear in one column (safe mode)</p>
-    <a href="/dashboard">⬅ Back</a>
-    """)
-# ---------- EDIT ----------
-@app.route("/edit/<id>", methods=["GET", "POST"])
-def edit(id):
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-    doc = db.captions.find_one({"_id": ObjectId(id)})
-
-    if request.method == "POST":
-        db.captions.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": {"text": request.form["text"]}}
-        )
-        return redirect("/all")
-
-    return page("Edit Caption", f"""
 <div class="bg-white p-6 rounded shadow">
-<form method="post" class="space-y-3">
+<form method="post">
 
-<p><b>Channel:</b> {doc.get("channel_id")}</p>
-<p><b>Type:</b> {doc.get("type")}</p>
+<input name="channel_id" placeholder="Channel ID (default empty)"
+ class="w-full border p-2 rounded mb-3">
 
-<textarea name="text"
-  rows="4"
-  class="w-full border p-2 rounded">{doc.get("text","")}</textarea>
+{rows}
+
+<input name="text" placeholder="Button Text"
+ class="w-full border p-2 rounded mb-1">
+<input name="url" placeholder="https://example.com"
+ class="w-full border p-2 rounded mb-3">
 
 <button class="bg-blue-600 text-white px-4 py-2 rounded">
-Save
+Save Buttons
 </button>
 
 </form>
 
-<a href="/all" class="text-blue-600 block mt-3">← Back</a>
+<a href="/dashboard" class="text-blue-600 block mt-4">← Back</a>
 </div>
+""")
+
+
+# ---------- VIEW ALL ----------
+@app.route("/all")
+def all():
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+    rows = ""
+
+    for d in db.captions.find():
+        rows += f"""
+<tr>
+<td class="border p-2">{d.get('channel_id')}</td>
+<td class="border p-2">{d.get('type')}</td>
+<td class="border p-2">{str(d.get('text',''))[:40]}</td>
+<td class="border p-2">
+<a href="/delete/{d['_id']}" class="text-red-600">Delete</a>
+</td>
+</tr>
+"""
+
+    return page("All Captions", f"""
+<table class="bg-white shadow border w-full">
+<tr class="bg-gray-200">
+<th class="p-2">Channel</th>
+<th class="p-2">Type</th>
+<th class="p-2">Text</th>
+<th class="p-2">Action</th>
+</tr>
+{rows}
+</table>
+
+<a href="/dashboard" class="text-blue-600 block mt-4">← Back</a>
 """)
 
 
@@ -265,24 +250,7 @@ def delete(id):
     return redirect("/all")
 
 
-# ---------- CHANNEL LIST ----------
-@app.route("/channels")
-def channels():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-    items = "".join(f"<li>{c}</li>" for c in db.captions.distinct("channel_id"))
-
-    return page("Channels", f"""
-<div class="bg-white p-4 rounded shadow">
-<ul class="list-disc pl-5">
-{items}
-</ul>
-<a href="/dashboard" class="text-blue-600 block mt-3">← Back</a>
-</div>
-""")
-# ---------- BULK DELETE PER CHANNEL ----------
+# ---------- BULK DELETE ----------
 @app.route("/bulk-delete", methods=["GET", "POST"])
 def bulk_delete():
     if not session.get("admin"):
@@ -291,92 +259,57 @@ def bulk_delete():
     import db
 
     if request.method == "POST":
-        channel_id = request.form.get("channel_id")
-
-        if channel_id:
-            db.captions.delete_many({"channel_id": channel_id})
-
-        return redirect("/dashboard")
-
-    return page("Bulk Delete", """
-    <div class="bg-white p-6 rounded shadow max-w-md mx-auto">
-      <form method="post" class="space-y-3">
-        <input name="channel_id"
-          placeholder="Channel ID (example: -1001234567890)"
-          class="w-full border p-2 rounded">
-
-        <button class="bg-red-600 text-white px-4 py-2 rounded w-full">
-          ⚠ Delete ALL captions of this channel
-        </button>
-      </form>
-
-      <p class="text-sm text-gray-500 mt-3">
-        This will permanently delete:
-        photo, video, text captions & inline buttons.
-      </p>
-
-      <a href="/dashboard" class="text-blue-600 block mt-4">
-        ← Back
-      </a>
-    </div>
-    """)
-
-# ---------- CHANNEL ENABLE / DISABLE ----------
-@app.route("/channel-toggle", methods=["GET", "POST"])
-def channel_toggle():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-
-    if request.method == "POST":
-        channel_id = request.form.get("channel_id")
-        enabled = True if request.form.get("enabled") == "on" else False
-
-        db.captions.update_one(
-            {"type": "channel_status", "channel_id": channel_id},
-            {"$set": {"enabled": enabled}},
-            upsert=True
+        db.captions.delete_many(
+            {"channel_id": request.form.get("channel_id")}
         )
         return redirect("/dashboard")
 
-    return page("Channel Enable / Disable", """
-    <div class="bg-white p-6 rounded shadow max-w-md mx-auto">
-      <form method="post" class="space-y-3">
+    return page("Bulk Delete", """
+<div class="bg-white p-6 rounded shadow max-w-md mx-auto">
+<form method="post" class="space-y-3">
 
-        <input name="channel_id"
-          placeholder="Channel ID (e.g. -1001234567890)"
-          class="w-full border p-2 rounded">
+<input name="channel_id"
+ placeholder="Channel ID"
+ class="w-full border p-2 rounded">
 
-        <label class="flex items-center gap-2">
-          <input type="checkbox" name="enabled" checked>
-          Enable bot for this channel
-        </label>
+<button class="bg-red-600 text-white px-4 py-2 rounded w-full">
+Delete ALL captions
+</button>
 
-        <button class="bg-blue-600 text-white px-4 py-2 rounded w-full">
-          Save
-        </button>
+</form>
+<a href="/dashboard" class="text-blue-600 block mt-4">← Back</a>
+</div>
+""")
 
-      </form>
 
-      <a href="/dashboard" class="text-blue-600 block mt-4">
-        ← Back
-      </a>
-    </div>
-    """)
-# ---------- EXPORT ----------
-@app.route("/export")
-def export():
+# ---------- CHANNEL LIST ----------
+@app.route("/channels")
+def channels():
     if not session.get("admin"):
         return redirect("/")
 
     import db
-    data = list(db.captions.find({}, {"_id": 0}))
+    items = "".join(
+        f"<li>{c}</li>" for c in db.captions.distinct("channel_id")
+    )
 
+    return page("Channels", f"""
+<ul class="bg-white p-4 rounded shadow list-disc pl-6">
+{items}
+</ul>
+<a href="/dashboard" class="text-blue-600 block mt-4">← Back</a>
+""")
+
+
+# ---------- EXPORT ----------
+@app.route("/export")
+def export():
+    import db
+    data = list(db.captions.find({}, {"_id": 0}))
     return Response(
         json.dumps(data, indent=2),
         mimetype="application/json",
-        headers={"Content-Disposition": "attachment;filename=captions_backup.json"}
+        headers={"Content-Disposition": "attachment;filename=captions.json"}
     )
 
 
