@@ -95,6 +95,10 @@ def dashboard():
 <a href="/bulk-delete" class="bg-red-100 p-4 rounded shadow hover:bg-red-200">
 🗑 Bulk Delete (Per Channel)
 </a>
+<a href="/channel-toggle" class="bg-white p-4 rounded shadow hover:bg-blue-50">
+🚦 Enable / Disable Channel
+</a>
+
 
 <a href="/logout" class="bg-red-500 text-white p-4 rounded shadow">
 Logout
@@ -354,6 +358,49 @@ def bulk_delete():
     </div>
     """)
 
+# ---------- CHANNEL ENABLE / DISABLE ----------
+@app.route("/channel-toggle", methods=["GET", "POST"])
+def channel_toggle():
+    if not session.get("admin"):
+        return redirect("/")
+
+    import db
+
+    if request.method == "POST":
+        channel_id = request.form.get("channel_id")
+        enabled = True if request.form.get("enabled") == "on" else False
+
+        db.captions.update_one(
+            {"type": "channel_status", "channel_id": channel_id},
+            {"$set": {"enabled": enabled}},
+            upsert=True
+        )
+        return redirect("/dashboard")
+
+    return page("Channel Enable / Disable", """
+    <div class="bg-white p-6 rounded shadow max-w-md mx-auto">
+      <form method="post" class="space-y-3">
+
+        <input name="channel_id"
+          placeholder="Channel ID (e.g. -1001234567890)"
+          class="w-full border p-2 rounded">
+
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="enabled" checked>
+          Enable bot for this channel
+        </label>
+
+        <button class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+          Save
+        </button>
+
+      </form>
+
+      <a href="/dashboard" class="text-blue-600 block mt-4">
+        ← Back
+      </a>
+    </div>
+    """)
 # ---------- EXPORT ----------
 @app.route("/export")
 def export():
