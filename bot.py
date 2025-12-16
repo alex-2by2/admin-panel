@@ -8,6 +8,18 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 db.init_db()
 
+# ---------- CHANNEL ENABLE CHECK ----------
+def is_channel_enabled(channel_id):
+    doc = db.captions.find_one({
+        "type": "channel_status",
+        "channel_id": str(channel_id)
+    })
+
+    # If not found → enabled by default
+    if not doc:
+        return True
+
+    return doc.get("enabled", True)
 
 # ---------- START ----------
 @bot.message_handler(commands=["start"])
