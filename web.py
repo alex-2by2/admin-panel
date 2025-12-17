@@ -15,7 +15,7 @@ except Exception as e:
     print("DB ERROR:", e)
 
 
-# ---------- BASIC PAGE ----------
+# ---------- MODERN PAGE ----------
 def page(title, body):
     return f"""
 <!doctype html>
@@ -28,16 +28,15 @@ def page(title, body):
       font-family: system-ui, Arial;
       background: #f4f6f8;
       margin: 0;
-      padding: 0;
     }}
     .header {{
       background: #1f2937;
       color: white;
-      padding: 14px 18px;
+      padding: 14px;
       font-size: 18px;
       font-weight: bold;
     }}
-    .container {{
+    .box {{
       max-width: 900px;
       margin: auto;
       padding: 15px;
@@ -46,19 +45,18 @@ def page(title, body):
       background: white;
       border-radius: 10px;
       padding: 15px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+      box-shadow: 0 2px 6px rgba(0,0,0,.1);
     }}
     .btn {{
       display: block;
       padding: 12px;
-      border-radius: 8px;
-      text-decoration: none;
       margin-bottom: 10px;
-      font-weight: 500;
       text-align: center;
-      color: white;
+      border-radius: 8px;
       background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
     }}
     .btn.red {{ background: #dc2626; }}
     .btn.gray {{ background: #4b5563; }}
@@ -67,25 +65,21 @@ def page(title, body):
       padding: 10px;
       margin-top: 8px;
       margin-bottom: 12px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
     }}
     button {{
       width: 100%;
       padding: 12px;
-      border-radius: 8px;
-      border: none;
       background: #2563eb;
       color: white;
-      font-size: 16px;
+      border: none;
+      border-radius: 8px;
     }}
   </style>
 </head>
 
 <body>
   <div class="header">🤖 Auto Caption Admin</div>
-
-  <div class="container">
+  <div class="box">
     <div class="card">
       <h2>{title}</h2>
       {body}
@@ -95,6 +89,7 @@ def page(title, body):
 </html>
 """
 
+
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET","POST"])
 def login():
@@ -102,7 +97,8 @@ def login():
         if request.form.get("password") == ADMIN_PASSWORD:
             session["admin"] = True
             return redirect("/dashboard")
-    return page("Admin Login", """
+
+    return page("Login", """
 <form method="post">
 <input type="password" name="password" placeholder="Admin password">
 <button>Login</button>
@@ -110,31 +106,26 @@ def login():
 """)
 
 
-# ---------- DASHBOARD ----------
+# ---------- DASHBOARD (FIXED) ----------
 @app.route("/dashboard")
 def dashboard():
     if not session.get("admin"):
         return redirect("/")
 
-return page("Dashboard", """
+    return page("Dashboard", """
 <a href="/add" class="btn">➕ Add Caption / Header / Footer</a>
-
 <a href="/buttons" class="btn">🔘 Inline Buttons</a>
-
 <a href="/header-toggle" class="btn gray">🧾 Header ON / OFF</a>
-
 <a href="/footer-toggle" class="btn gray">📄 Footer ON / OFF</a>
-
-<a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
-
-<a href="/bulk-delete" class="btn red">🗑 Bulk Delete Per Channel</a>
-
-<a href="/export" class="btn">⬇ Export Backup</a>
-
+<a href="/channel-toggle" class="btn gray">🚦 Channel Enable</a>
+<a href="/all" class="btn">📋 View / Edit All</a>
+<a href="/bulk-delete" class="btn red">🗑 Bulk Delete</a>
+<a href="/export" class="btn">⬇ Export</a>
 <a href="/logout" class="btn red">Logout</a>
 """)
 
-# ---------- ADD CAPTION / HEADER / FOOTER ----------
+
+# ---------- ADD ----------
 @app.route("/add", methods=["GET","POST"])
 def add():
     if not session.get("admin"):
@@ -155,93 +146,49 @@ def add():
 
     return page("Add Caption / Header / Footer", """
 <form method="post">
-<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
+<input name="channel" placeholder="Channel ID (blank = default)">
 
 <select name="type">
   <option value="header">Header</option>
   <option value="footer">Footer</option>
-  <option value="text_caption">Text Caption</option>
-  <option value="photo_caption">Photo Caption</option>
-  <option value="video_caption">Video Caption</option>
-</select><br><br>
+  <option value="text_caption">Text</option>
+  <option value="photo_caption">Photo</option>
+  <option value="video_caption">Video</option>
+</select>
 
-<textarea name="text" rows="4" placeholder="Text"></textarea><br><br>
+<textarea name="text" rows="4"></textarea>
 <button>Save</button>
 </form>
 """)
 
 
-# ---------- INLINE BUTTONS ----------
-@app.route("/buttons", methods=["GET","POST"])
-def buttons():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-
-    if request.method == "POST":
-        buttons = []
-        for t, u in zip(request.form.getlist("text"), request.form.getlist("url")):
-            if t and u:
-                buttons.append({"text": t, "url": u})
-
-        db.captions.update_one(
-            {
-                "type": "inline_buttons",
-                "channel_id": request.form.get("channel") or "default"
-            },
-            {"$set": {"buttons": buttons}},
-            upsert=True
-        )
-        return redirect("/dashboard")
-
-    return page("Inline Buttons", """
-<form method="post">
-<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
-
-<input name="text" placeholder="Button Text">
-<input name="url" placeholder="https://example.com"><br><br>
-
-<button>Save Buttons</button>
-</form>
-""")
-
-
-# ---------- VIEW ALL (EDIT / DELETE EVERYTHING) ----------
+# ---------- VIEW ALL ----------
 @app.route("/all")
 def all_items():
     if not session.get("admin"):
         return redirect("/")
 
     import db
-
     rows = ""
+
     for d in db.captions.find():
-        value = d.get("text") or str(d.get("buttons",""))
         rows += f"""
-        <tr>
-          <td>{d.get("channel_id")}</td>
-          <td>{d.get("type")}</td>
-          <td>{value[:50]}</td>
-          <td>
-            <a href="/edit/{d['_id']}">Edit</a> |
-            <a href="/delete/{d['_id']}">Delete</a>
-          </td>
-        </tr>
-        """
+<tr>
+<td>{d.get("channel_id")}</td>
+<td>{d.get("type")}</td>
+<td>{str(d.get("text",""))[:40]}</td>
+<td>
+<a href="/edit/{d['_id']}">Edit</a> |
+<a href="/delete/{d['_id']}">Delete</a>
+</td>
+</tr>
+"""
 
     return page("All Saved Data", f"""
-<table border="1" width="100%" cellpadding="6">
-<tr>
-<th>Channel</th>
-<th>Type</th>
-<th>Content</th>
-<th>Action</th>
-</tr>
+<table border="1" width="100%">
+<tr><th>Channel</th><th>Type</th><th>Text</th><th>Action</th></tr>
 {rows}
 </table>
-
-<br>
 <a href="/dashboard">← Back</a>
 """)
 
@@ -262,129 +209,45 @@ def edit(id):
         )
         return redirect("/all")
 
-    return page("Edit Item", f"""
+    return page("Edit", f"""
 <form method="post">
-<p>Channel: {doc.get("channel_id")}</p>
-<p>Type: {doc.get("type")}</p>
-<textarea name="text" rows="4">{doc.get("text","")}</textarea><br><br>
+<textarea name="text" rows="4">{doc.get("text","")}</textarea>
 <button>Save</button>
 </form>
-
-<br>
-<a href="/all">← Back</a>
 """)
 
 
 # ---------- DELETE ----------
 @app.route("/delete/<id>")
 def delete(id):
-    if not session.get("admin"):
-        return redirect("/")
-
     import db
     db.captions.delete_one({"_id": ObjectId(id)})
     return redirect("/all")
 
 
-# ---------- CHANNEL ENABLE ----------
-@app.route("/channel-toggle", methods=["GET","POST"])
-def channel_toggle():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-
-    if request.method == "POST":
-        enabled = True if request.form.get("enabled") == "on" else False
-
-        db.captions.update_one(
-            {
-                "type": "channel_status",
-                "channel_id": request.form["channel"]
-            },
-            {"$set": {"enabled": enabled}},
-            upsert=True
-        )
-        return redirect("/dashboard")
-
-    return page("Channel Enable / Disable", """
-<form method="post">
-<input name="channel" placeholder="Channel ID"><br><br>
-<label><input type="checkbox" name="enabled" checked> Enable Bot</label><br><br>
-<button>Save</button>
-</form>
-""")
-
-
-# ---------- BULK DELETE ----------
-@app.route("/bulk-delete", methods=["GET","POST"])
-def bulk_delete():
-    if not session.get("admin"):
-        return redirect("/")
-
-    import db
-
-    if request.method == "POST":
-        db.captions.delete_many({"channel_id": request.form["channel"]})
-        return redirect("/dashboard")
-
-    return page("Bulk Delete", """
-<form method="post">
-<input name="channel" placeholder="Channel ID"><br><br>
-<button>DELETE ALL</button>
-</form>
-""")
-
-
-# ---------- EXPORT ----------
-@app.route("/export")
-def export():
-    import db
-    data = list(db.captions.find({}, {"_id": 0}))
-    return Response(
-        json.dumps(data, indent=2),
-        mimetype="application/json"
-    )
+# ---------- HEADER TOGGLE ----------
 @app.route("/header-toggle", methods=["GET","POST"])
 def header_toggle():
     if not session.get("admin"):
         return redirect("/")
 
     import db
-
     if request.method == "POST":
-        channel = request.form.get("channel") or "default"
-        enabled = True if request.form.get("enabled") == "on" else False
-
         db.captions.update_one(
-            {
-                "type": "header_status",
-                "channel_id": channel
-            },
-            {"$set": {"enabled": enabled}},
+            {"type":"header_status","channel_id":request.form.get("channel") or "default"},
+            {"$set":{"enabled":"enabled" in request.form}},
             upsert=True
         )
         return redirect("/dashboard")
 
-    return page("Header ON / OFF", """
+    return page("Header Toggle", """
 <form method="post">
-<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
-
-<label>
-  <input type="checkbox" name="enabled" checked>
-  Enable Header
-</label><br><br>
-
+<input name="channel" placeholder="Channel ID (blank = default)">
+<label><input type="checkbox" name="enabled" checked> Enable Header</label>
 <button>Save</button>
 </form>
-<a href="/dashboard">← Back</a>
 """)
 
-# ---------- LOGOUT ----------
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
 
 # ---------- FOOTER TOGGLE ----------
 @app.route("/footer-toggle", methods=["GET","POST"])
@@ -393,32 +256,30 @@ def footer_toggle():
         return redirect("/")
 
     import db
-
     if request.method == "POST":
-        enabled = True if request.form.get("enabled") == "on" else False
-
         db.captions.update_one(
-            {
-                "type": "footer_status",
-                "channel_id": request.form.get("channel") or "default"
-            },
-            {"$set": {"enabled": enabled}},
+            {"type":"footer_status","channel_id":request.form.get("channel") or "default"},
+            {"$set":{"enabled":"enabled" in request.form}},
             upsert=True
         )
         return redirect("/dashboard")
 
-    return page("Footer ON / OFF", """
+    return page("Footer Toggle", """
 <form method="post">
-<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
-
-<label>
-  <input type="checkbox" name="enabled" checked>
-  Enable Footer
-</label><br><br>
-
+<input name="channel" placeholder="Channel ID (blank = default)">
+<label><input type="checkbox" name="enabled" checked> Enable Footer</label>
 <button>Save</button>
 </form>
 """)
+
+
+# ---------- LOGOUT ----------
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+
 # ---------- RUN ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
