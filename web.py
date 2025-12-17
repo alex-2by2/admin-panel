@@ -135,7 +135,7 @@ def all_items():
 <td>{content[:40]}</td>
 <td>
 <a href="/edit/{d['_id']}">Edit</a> |
-<a href="/delete/{d['_id']}">Delete</a>
+<a href="/confirm-delete/{d['_id']}">Delete</a>
 </td>
 </tr>
 """
@@ -242,6 +242,25 @@ def bulk_delete():
 </form>
 """)
 
+# ---------- CONFIRM DELETE ----------
+@app.route("/confirm-delete/<id>")
+def confirm_delete(id):
+    if not session.get("admin"):
+        return redirect("/")
+
+    return page("Confirm Delete", f"""
+    <p style="color:red;font-weight:bold;">
+      ⚠ This action cannot be undone
+    </p>
+
+    <a href="/delete/{id}" class="btn red">
+      ❌ Yes, Delete
+    </a>
+
+    <a href="/all" class="btn gray">
+      ⬅ Cancel
+    </a>
+    """)
 # ---------- EXPORT ----------
 @app.route("/export")
 def export():
