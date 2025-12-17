@@ -61,6 +61,7 @@ def dashboard():
 <li><a href="/channel-toggle">🚦 Channel Enable / Disable</a></li>
 <li><a href="/bulk-delete">🗑 Bulk Delete Per Channel</a></li>
 <li><a href="/header-toggle">🧾 Header ON / OFF</a></li>
+<li><a href="/footer-toggle">📄 Footer ON / OFF</a></li>
 <li><a href="/export">⬇ Export Backup</a></li>
 <li><a href="/logout">Logout</a></li>
 </ul>
@@ -319,7 +320,39 @@ def logout():
     session.clear()
     return redirect("/")
 
+# ---------- FOOTER TOGGLE ----------
+@app.route("/footer-toggle", methods=["GET","POST"])
+def footer_toggle():
+    if not session.get("admin"):
+        return redirect("/")
 
+    import db
+
+    if request.method == "POST":
+        enabled = True if request.form.get("enabled") == "on" else False
+
+        db.captions.update_one(
+            {
+                "type": "footer_status",
+                "channel_id": request.form.get("channel") or "default"
+            },
+            {"$set": {"enabled": enabled}},
+            upsert=True
+        )
+        return redirect("/dashboard")
+
+    return page("Footer ON / OFF", """
+<form method="post">
+<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
+
+<label>
+  <input type="checkbox" name="enabled" checked>
+  Enable Footer
+</label><br><br>
+
+<button>Save</button>
+</form>
+""")
 # ---------- RUN ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
