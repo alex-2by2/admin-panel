@@ -8,75 +8,41 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 db.init_db()
 
-# ---------- CHANNEL ENABLE ----------
+# ---------- HELPERS ----------
 def is_channel_enabled(channel_id):
-    doc = db.captions.find_one({
-        "type": "channel_status",
-        "channel_id": str(channel_id)
-    })
-    return doc.get("enabled", True) if doc else True
+    d = db.captions.find_one({"type": "channel_status", "channel_id": str(channel_id)})
+    return d["enabled"] if d else True
 
 
-# ---------- HEADER ENABLE ----------
-def is_header_enabled(channel_id):
-    doc = db.captions.find_one({
-        "type": "header_status",
-        "channel_id": str(channel_id)
-    })
-    return doc.get("enabled", True) if doc else True
+def get_status(name, channel_id):
+    d = db.captions.find_one({"type": name, "channel_id": str(channel_id)})
+    if d:
+        return d.get("enabled", True)
+
+    d = db.captions.find_one({"type": name, "channel_id": "default"})
+    return d.get("enabled", True) if d else True
 
 
-# ---------- HEADER TEXT ----------
-def get_header(channel_id):
-    doc = db.captions.find_one({
-        "type": "header",
-        "channel_id": str(channel_id)
-    })
-    if doc:
-        return doc["text"]
+def get_text(name, channel_id):
+    d = db.captions.find_one({"type": name, "channel_id": str(channel_id)})
+    if d:
+        return d["text"]
 
-    doc = db.captions.find_one({
-        "type": "header",
-        "channel_id": "default"
-    })
-    return doc["text"] if doc else None
+    d = db.captions.find_one({"type": name, "channel_id": "default"})
+    return d["text"] if d else None
 
 
-# ---------- INLINE BUTTONS ----------
-def get_inline_keyboard(channel_id):
-    data = db.captions.find_one({
-        "type": "inline_buttons",
-        "channel_id": str(channel_id)
-    }) or db.captions.find_one({
-        "type": "inline_buttons",
-        "channel_id": "default"
-    })
-
-    if not data:
+def get_buttons(channel_id):
+    d = db.captions.find_one({"type": "inline_buttons", "channel_id": str(channel_id)})
+    if not d:
+        d = db.captions.find_one({"type": "inline_buttons", "channel_id": "default"})
+    if not d:
         return None
 
     kb = InlineKeyboardMarkup()
-    for b in data.get("buttons", []):
-        kb.add(InlineKeyboardButton(text=b["text"], url=b["url"]))
+    for b in d["buttons"]:
+        kb.add(InlineKeyboardButton(b["text"], url=b["url"]))
     return kb
-
-
-# ---------- CAPTION ----------
-def get_caption(caption_type, channel_id):
-    doc = db.captions.find_one({
-        "type": caption_type,
-        "channel_id": str(channel_id)
-    }) or db.captions.find_one({
-        "type": caption_type,
-        "channel_id": "default"
-    })
-
-    return doc["text"] if doc else None
-
-
-@bot.message_handler(commands=["start"])
-def start(m):
-    bot.reply_to(m, "🤖 Channel Auto Caption Bot is running")
 
 
 # ---------- TEXT ----------
@@ -85,23 +51,29 @@ def text_post(m):
     if not is_channel_enabled(m.chat.id):
         return
 
-    caption = get_caption("text_caption", m.chat.id)
+    caption = get_text("text_caption", m.chat.id)
     if not caption:
         return
 
     final = ""
-    if is_header_enabled(m.chat.id):
-        header = get_header(m.chat.id)
-        if header:
-            final += header + "\n\n"
+
+    if get_status("header_status", m.chat.id):
+        h = get_text("header", m.chat.id)
+        if h:
+            final += h + "\n\n"
 
     final += m.text + "\n\n" + caption
+
+    if get_status("footer_status", m.chat.id):
+        f = get_text("footer", m.chat.id)
+        if f:
+            final += "\n\n" + f
 
     bot.edit_message_text(
         chat_id=m.chat.id,
         message_id=m.message_id,
         text=final,
-        reply_markup=get_inline_keyboard(m.chat.id)
+        reply_markup=get_buttons(m.chat.id)
     )
 
 
@@ -111,51 +83,37 @@ def photo_post(m):
     if not is_channel_enabled(m.chat.id):
         return
 
-    caption = get_caption("photo_caption", m.chat.id)
+    caption = get_text("photo_caption", m.chat.id)
     if not caption:
         return
 
     final = ""
-    if is_header_enabled(m.chat.id):
-        header = get_header(m.chat.id)
-        if header:
-            final += header + "\n\n"
+
+    if get_status("header_status", m.chat.id):
+        h = get_text("header", m.chat.id)
+        if h:
+            final += h + "\n\n"
 
     final += caption
+
+    if get_status("footer_status", m.chat.id):
+        f = get_text("footer", m.chat.id)
+        if f:
+            final += "\n\n" + f
 
     bot.edit_message_caption(
         chat_id=m.chat.id,
         message_id=m.message_id,
         caption=final,
-        reply_markup=get_inline_keyboard(m.chat.id)
+        reply_markup=get_buttons(m.chat.id)
     )
 
 
 # ---------- VIDEO ----------
 @bot.channel_post_handler(content_types=["video"])
 def video_post(m):
-    if not is_channel_enabled(m.chat.id):
-        return
-
-    caption = get_caption("video_caption", m.chat.id)
-    if not caption:
-        return
-
-    final = ""
-    if is_header_enabled(m.chat.id):
-        header = get_header(m.chat.id)
-        if header:
-            final += header + "\n\n"
-
-    final += caption
-
-    bot.edit_message_caption(
-        chat_id=m.chat.id,
-        message_id=m.message_id,
-        caption=final,
-        reply_markup=get_inline_keyboard(m.chat.id)
-    )
+    photo_post(m)  # SAME LOGIC
 
 
-print("🤖 Bot running")
+print("🤖 Bot running with Header + Footer")
 bot.infinity_polling()
