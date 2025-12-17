@@ -60,6 +60,7 @@ def dashboard():
 <li><a href="/all">📋 View All Saved Data</a></li>
 <li><a href="/channel-toggle">🚦 Channel Enable / Disable</a></li>
 <li><a href="/bulk-delete">🗑 Bulk Delete Per Channel</a></li>
+<li><a href="/header-toggle">🧾 Header ON / OFF</a></li>
 <li><a href="/export">⬇ Export Backup</a></li>
 <li><a href="/logout">Logout</a></li>
 </ul>
@@ -277,7 +278,40 @@ def export():
         json.dumps(data, indent=2),
         mimetype="application/json"
     )
+@app.route("/header-toggle", methods=["GET","POST"])
+def header_toggle():
+    if not session.get("admin"):
+        return redirect("/")
 
+    import db
+
+    if request.method == "POST":
+        channel = request.form.get("channel") or "default"
+        enabled = True if request.form.get("enabled") == "on" else False
+
+        db.captions.update_one(
+            {
+                "type": "header_status",
+                "channel_id": channel
+            },
+            {"$set": {"enabled": enabled}},
+            upsert=True
+        )
+        return redirect("/dashboard")
+
+    return page("Header ON / OFF", """
+<form method="post">
+<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
+
+<label>
+  <input type="checkbox" name="enabled" checked>
+  Enable Header
+</label><br><br>
+
+<button>Save</button>
+</form>
+<a href="/dashboard">← Back</a>
+""")
 
 # ---------- LOGOUT ----------
 @app.route("/logout")
