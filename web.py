@@ -17,34 +17,120 @@ def page(title, body):
 <!doctype html>
 <html>
 <head>
-<title>{title}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body {{font-family:Arial;background:#f4f6f8;margin:0}}
-.header {{background:#111827;color:white;padding:14px;font-size:18px}}
-.box {{max-width:900px;margin:auto;padding:15px}}
-.card {{background:white;padding:15px;border-radius:10px}}
-a.btn {{display:block;padding:12px;margin:8px 0;background:#2563eb;color:white;text-decoration:none;border-radius:8px;text-align:center}}
-a.red {{background:#dc2626}}
-a.gray {{background:#4b5563}}
-input,select,textarea {{width:100%;padding:10px;margin:6px 0}}
-button {{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:8px}}
-table {{width:100%;border-collapse:collapse}}
-td,th {{border:1px solid #ccc;padding:8px}}
-</style>
+  <title>{title}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{
+      font-family: system-ui, -apple-system, Arial;
+      background: #f1f5f9;
+      margin: 0;
+      color: #111827;
+    }}
+    .topbar {{
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 18px;
+      font-size: 18px;
+      font-weight: 600;
+    }}
+    .container {{
+      max-width: 960px;
+      margin: auto;
+      padding: 16px;
+    }}
+    .card {{
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.06);
+    }}
+    h2 {{
+      margin-top: 0;
+      margin-bottom: 12px;
+    }}
+    a.btn {{
+      display: block;
+      padding: 12px;
+      margin: 8px 0;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 500;
+    }}
+    a.btn:hover {{ opacity: .9; }}
+    a.red {{ background: #dc2626; }}
+    a.gray {{ background: #4b5563; }}
+
+    input, textarea, select {{
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #cbd5f5;
+      font-size: 15px;
+    }}
+    button {{
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }}
+    button:hover {{ opacity: .9; }}
+
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }}
+    th, td {{
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      font-size: 14px;
+    }}
+    th {{
+      background: #f8fafc;
+    }}
+    a.link {{
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+    }}
+    a.link.red {{
+      color: #dc2626;
+    }}
+    .footer {{
+      margin-top: 20px;
+      font-size: 13px;
+      color: #6b7280;
+      text-align: center;
+    }}
+  </style>
 </head>
+
 <body>
-<div class="header">🤖 Auto Caption Admin</div>
-<div class="box">
-<div class="card">
-<h2>{title}</h2>
-{body}
-</div>
-</div>
+  <div class="topbar">🤖 Channel Auto Caption Admin</div>
+
+  <div class="container">
+    <div class="card">
+      <h2>{title}</h2>
+      {body}
+    </div>
+    <div class="footer">
+      Admin Panel • Stable Mode
+    </div>
+  </div>
 </body>
 </html>
 """
-
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET","POST"])
 def login():
