@@ -23,14 +23,77 @@ def page(title, body):
 <head>
   <title>{title}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {{
+      font-family: system-ui, Arial;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }}
+    .header {{
+      background: #1f2937;
+      color: white;
+      padding: 14px 18px;
+      font-size: 18px;
+      font-weight: bold;
+    }}
+    .container {{
+      max-width: 900px;
+      margin: auto;
+      padding: 15px;
+    }}
+    .card {{
+      background: white;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    }}
+    .btn {{
+      display: block;
+      padding: 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      margin-bottom: 10px;
+      font-weight: 500;
+      text-align: center;
+      color: white;
+      background: #2563eb;
+    }}
+    .btn.red {{ background: #dc2626; }}
+    .btn.gray {{ background: #4b5563; }}
+    input, textarea, select {{
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }}
+    button {{
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+    }}
+  </style>
 </head>
-<body style="font-family:Arial;max-width:900px;margin:auto;padding:15px;">
-<h2>{title}</h2>
-{body}
+
+<body>
+  <div class="header">🤖 Auto Caption Admin</div>
+
+  <div class="container">
+    <div class="card">
+      <h2>{title}</h2>
+      {body}
+    </div>
+  </div>
 </body>
 </html>
 """
-
 
 # ---------- LOGIN ----------
 @app.route("/", methods=["GET","POST"])
@@ -53,20 +116,23 @@ def dashboard():
     if not session.get("admin"):
         return redirect("/")
 
-    return page("Dashboard", """
-<ul>
-<li><a href="/add">➕ Add Caption / Header / Footer</a></li>
-<li><a href="/buttons">🔘 Inline Buttons</a></li>
-<li><a href="/all">📋 View All Saved Data</a></li>
-<li><a href="/channel-toggle">🚦 Channel Enable / Disable</a></li>
-<li><a href="/bulk-delete">🗑 Bulk Delete Per Channel</a></li>
-<li><a href="/header-toggle">🧾 Header ON / OFF</a></li>
-<li><a href="/footer-toggle">📄 Footer ON / OFF</a></li>
-<li><a href="/export">⬇ Export Backup</a></li>
-<li><a href="/logout">Logout</a></li>
-</ul>
-""")
+return page("Dashboard", """
+<a href="/add" class="btn">➕ Add Caption / Header / Footer</a>
 
+<a href="/buttons" class="btn">🔘 Inline Buttons</a>
+
+<a href="/header-toggle" class="btn gray">🧾 Header ON / OFF</a>
+
+<a href="/footer-toggle" class="btn gray">📄 Footer ON / OFF</a>
+
+<a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
+
+<a href="/bulk-delete" class="btn red">🗑 Bulk Delete Per Channel</a>
+
+<a href="/export" class="btn">⬇ Export Backup</a>
+
+<a href="/logout" class="btn red">Logout</a>
+""")
 
 # ---------- ADD CAPTION / HEADER / FOOTER ----------
 @app.route("/add", methods=["GET","POST"])
