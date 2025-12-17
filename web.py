@@ -3,15 +3,15 @@ from bson import ObjectId
 import os, json
 import db
 
-# ================= APP =================
 app = Flask(__name__)
 app.secret_key = "safe-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 
+# ---------- DB ----------
 db.init_db()
 
-# ================= PAGE =================
+# ---------- PAGE ----------
 def page(title, body):
     return f"""
 <!doctype html>
@@ -30,7 +30,7 @@ a.gray {{background:#4b5563}}
 input,select,textarea {{width:100%;padding:10px;margin:6px 0}}
 button {{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:8px}}
 table {{width:100%;border-collapse:collapse}}
-td,th {{border:1px solid #ccc;padding:6px}}
+td,th {{border:1px solid #ccc;padding:8px}}
 </style>
 </head>
 <body>
@@ -45,7 +45,7 @@ td,th {{border:1px solid #ccc;padding:6px}}
 </html>
 """
 
-# ================= LOGIN =================
+# ---------- LOGIN ----------
 @app.route("/", methods=["GET","POST"])
 def login():
     if request.method == "POST" and request.form.get("password") == ADMIN_PASSWORD:
@@ -58,7 +58,7 @@ def login():
 </form>
 """)
 
-# ================= DASHBOARD =================
+# ---------- DASHBOARD ----------
 @app.route("/dashboard")
 def dashboard():
     if not session.get("admin"):
@@ -70,12 +70,12 @@ def dashboard():
 <a href="/footer-toggle" class="btn gray">📄 Footer ON/OFF</a>
 <a href="/channel-toggle" class="btn gray">🚦 Channel Enable</a>
 <a href="/bulk-delete" class="btn red">🗑 Bulk Delete</a>
-<a href="/all" class="btn">📋 View All</a>
+<a href="/all" class="btn">📋 View / Edit / Delete All</a>
 <a href="/export" class="btn">⬇ Export</a>
 <a href="/logout" class="btn red">Logout</a>
 """)
 
-# ================= ADD =================
+# ---------- ADD ----------
 @app.route("/add", methods=["GET","POST"])
 def add():
     if not session.get("admin"): return redirect("/")
@@ -99,7 +99,7 @@ def add():
 </form>
 """)
 
-# ================= INLINE BUTTONS =================
+# ---------- INLINE BUTTONS ----------
 @app.route("/buttons", methods=["GET","POST"])
 def buttons():
     if not session.get("admin"): return redirect("/")
@@ -121,24 +121,63 @@ def buttons():
 </form>
 """)
 
-# ================= CHANNEL ENABLE =================
-@app.route("/channel-toggle", methods=["GET","POST"])
-def channel_toggle():
+# ---------- VIEW ALL (EDIT + DELETE) ----------
+@app.route("/all")
+def all_items():
     if not session.get("admin"): return redirect("/")
-    if request.method == "POST":
-        db.captions.update_one(
-            {"type":"channel_status","channel_id":request.form["channel"]},
-            {"$set":{"enabled":"enabled" in request.form}},upsert=True)
-        return redirect("/dashboard")
-    return page("Channel Enable", """
-<form method="post">
-<input name="channel" placeholder="Channel ID">
-<label><input type="checkbox" name="enabled" checked> Enable</label>
-<button>Save</button>
-</form>
+    rows=""
+    for d in db.captions.find():
+        content = d.get("text") or str(d.get("buttons",""))
+        rows+=f"""
+<tr>
+<td>{d.get('channel_id')}</td>
+<td>{d.get('type')}</td>
+<td>{content[:40]}</td>
+<td>
+<a href="/edit/{d['_id']}">Edit</a> |
+<a href="/delete/{d['_id']}">Delete</a>
+</td>
+</tr>
+"""
+    return page("All Saved Data", f"""
+<table>
+<tr><th>Channel</th><th>Type</th><th>Content</th><th>Action</th></tr>
+{rows}
+</table>
+<a href="/dashboard" class="btn gray">← Back</a>
 """)
 
-# ================= HEADER TOGGLE =================
+# ---------- EDIT ----------
+@app.route("/edit/<id>", methods=["GET","POST"])
+def edit(id):
+    if not session.get("admin"): return redirect("/")
+    doc = db.captions.find_one({"_id":ObjectId(id)})
+
+    if request.method == "POST":
+        db.captions.update_one(
+            {"_id":ObjectId(id)},
+            {"$set":{"text":request.form["text"]}}
+        )
+        return redirect("/all")
+
+    return page("Edit Item", f"""
+<form method="post">
+<p><b>Channel:</b> {doc.get('channel_id')}</p>
+<p><b>Type:</b> {doc.get('type')}</p>
+<textarea name="text" rows="4">{doc.get('text','')}</textarea>
+<button>Save</button>
+</form>
+<a href="/all" class="btn gray">← Back</a>
+""")
+
+# ---------- DELETE ----------
+@app.route("/delete/<id>")
+def delete(id):
+    if not session.get("admin"): return redirect("/")
+    db.captions.delete_one({"_id":ObjectId(id)})
+    return redirect("/all")
+
+# ---------- HEADER TOGGLE ----------
 @app.route("/header-toggle", methods=["GET","POST"])
 def header_toggle():
     if not session.get("admin"): return redirect("/")
@@ -155,7 +194,7 @@ def header_toggle():
 </form>
 """)
 
-# ================= FOOTER TOGGLE =================
+# ---------- FOOTER TOGGLE ----------
 @app.route("/footer-toggle", methods=["GET","POST"])
 def footer_toggle():
     if not session.get("admin"): return redirect("/")
@@ -172,7 +211,24 @@ def footer_toggle():
 </form>
 """)
 
-# ================= BULK DELETE =================
+# ---------- CHANNEL ENABLE ----------
+@app.route("/channel-toggle", methods=["GET","POST"])
+def channel_toggle():
+    if not session.get("admin"): return redirect("/")
+    if request.method == "POST":
+        db.captions.update_one(
+            {"type":"channel_status","channel_id":request.form["channel"]},
+            {"$set":{"enabled":"enabled" in request.form}},upsert=True)
+        return redirect("/dashboard")
+    return page("Channel Enable", """
+<form method="post">
+<input name="channel" placeholder="Channel ID">
+<label><input type="checkbox" name="enabled" checked> Enable</label>
+<button>Save</button>
+</form>
+""")
+
+# ---------- BULK DELETE ----------
 @app.route("/bulk-delete", methods=["GET","POST"])
 def bulk_delete():
     if not session.get("admin"): return redirect("/")
@@ -186,37 +242,7 @@ def bulk_delete():
 </form>
 """)
 
-# ================= VIEW ALL =================
-@app.route("/all")
-def all_items():
-    if not session.get("admin"): return redirect("/")
-    rows=""
-    for d in db.captions.find():
-        rows+=f"""
-<tr>
-<td>{d.get('channel_id')}</td>
-<td>{d.get('type')}</td>
-<td>{str(d.get('text',''))[:30]}</td>
-<td><a href="/delete/{d['_id']}">Delete</a></td>
-</tr>
-"""
-    return page("All Data", f"""
-<table>
-<tr><th>Channel</th><th>Type</th><th>Text</th><th>Action</th></tr>
-{rows}
-</table>
-<a href="/dashboard">← Back</a>
-""")
-
-# ================= DELETE (FIXED) =================
-@app.route("/delete/<id>")
-def delete_item(id):
-    if not session.get("admin"):
-        return redirect("/")
-    db.captions.delete_one({"_id": ObjectId(id)})
-    return redirect("/all")
-
-# ================= EXPORT =================
+# ---------- EXPORT ----------
 @app.route("/export")
 def export():
     return Response(
@@ -224,12 +250,12 @@ def export():
         mimetype="application/json"
     )
 
-# ================= LOGOUT =================
+# ---------- LOGOUT ----------
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
-# ================= RUN =================
+# ---------- RUN ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT",8080)))
