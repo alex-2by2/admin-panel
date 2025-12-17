@@ -62,10 +62,44 @@ def dashboard():
 <li><a href="/bulk-delete">🗑 Bulk Delete</a></li>
 <li><a href="/export">⬇ Export</a></li>
 <li><a href="/logout">Logout</a></li>
+<a href="/header-footer-toggle">🧾 Header / Footer Toggle</a><br>
 </ul>
 """)
 
+@app.route("/header-footer-toggle", methods=["GET","POST"])
+def header_footer_toggle():
+    if not session.get("admin"):
+        return redirect("/")
 
+    import db
+
+    if request.method == "POST":
+        channel = request.form.get("channel") or "default"
+
+        db.captions.update_one(
+            {"type": "header_status", "channel_id": channel},
+            {"$set": {"enabled": "header" in request.form}},
+            upsert=True
+        )
+
+        db.captions.update_one(
+            {"type": "footer_status", "channel_id": channel},
+            {"$set": {"enabled": "footer" in request.form}},
+            upsert=True
+        )
+
+        return redirect("/dashboard")
+
+    return page("Header / Footer Toggle", """
+<form method="post">
+<input name="channel" placeholder="Channel ID (blank = default)"><br><br>
+
+<label><input type="checkbox" name="header" checked> Header ON</label><br>
+<label><input type="checkbox" name="footer" checked> Footer ON</label><br><br>
+
+<button>Save</button>
+</form>
+""")
 # ---------- ADD CAPTION / HEADER ----------
 @app.route("/add", methods=["GET","POST"])
 def add():
@@ -89,11 +123,12 @@ def add():
 <form method="post">
 <input name="channel" placeholder="Channel ID (blank = default)"><br><br>
 <select name="type">
-<option value="header">Header</option>
-<option value="text_caption">Text Caption</option>
-<option value="photo_caption">Photo Caption</option>
-<option value="video_caption">Video Caption</option>
-</select><br><br>
+  <option value="header">Header</option>
+  <option value="footer">Footer</option>
+  <option value="text_caption">Text Caption</option>
+  <option value="photo_caption">Photo Caption</option>
+  <option value="video_caption">Video Caption</option>
+</select>
 <textarea name="text" rows="4" placeholder="Text"></textarea><br><br>
 <button>Save</button>
 </form>
