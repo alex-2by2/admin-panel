@@ -136,11 +136,11 @@ def add():
   class="w-full border p-2 rounded">
 
 <select name="type" class="w-full border p-2 rounded">
+  <option value="header">Header (Auto)</option>
   <option value="photo_caption">Photo</option>
   <option value="video_caption">Video</option>
   <option value="text_caption">Text</option>
 </select>
-
 <textarea name="text"
   rows="4"
   placeholder="Caption text"
