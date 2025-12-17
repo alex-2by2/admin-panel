@@ -20,7 +20,7 @@ def is_channel_enabled(channel_id):
 
 
 def get_status(name, channel_id):
-    # channel specific
+    # Channel specific
     doc = db.captions.find_one({
         "type": name,
         "channel_id": str(channel_id)
@@ -28,7 +28,7 @@ def get_status(name, channel_id):
     if doc:
         return doc.get("enabled", True)
 
-    # default fallback
+    # Default fallback
     doc = db.captions.find_one({
         "type": name,
         "channel_id": "default"
@@ -37,7 +37,7 @@ def get_status(name, channel_id):
 
 
 def get_text(name, channel_id):
-    # channel specific
+    # Channel specific
     doc = db.captions.find_one({
         "type": name,
         "channel_id": str(channel_id)
@@ -45,7 +45,7 @@ def get_text(name, channel_id):
     if doc:
         return doc.get("text")
 
-    # default fallback
+    # Default fallback
     doc = db.captions.find_one({
         "type": name,
         "channel_id": "default"
@@ -53,24 +53,38 @@ def get_text(name, channel_id):
     return doc.get("text") if doc else None
 
 
+# ================= INLINE BUTTONS (ROW SUPPORT) =================
 def get_buttons(channel_id):
+    # Channel specific
     doc = db.captions.find_one({
         "type": "inline_buttons",
         "channel_id": str(channel_id)
     })
 
+    # Default fallback
     if not doc:
         doc = db.captions.find_one({
             "type": "inline_buttons",
             "channel_id": "default"
         })
 
-    if not doc:
+    if not doc or "buttons" not in doc:
         return None
 
     kb = InlineKeyboardMarkup()
-    for b in doc.get("buttons", []):
-        kb.add(InlineKeyboardButton(b["text"], url=b["url"]))
+
+    # buttons = [ [ {text,url}, {text,url} ], [ {text,url} ] ]
+    for row in doc["buttons"]:
+        btn_row = []
+        for b in row:
+            btn_row.append(
+                InlineKeyboardButton(
+                    text=b["text"],
+                    url=b["url"]
+                )
+            )
+        kb.row(*btn_row)
+
     return kb
 
 
@@ -186,5 +200,5 @@ def video_post(m):
 
 
 # ================= RUN =================
-print("🤖 Bot running with Header + Footer + Buttons")
+print("🤖 Bot running (Header + Footer + Multi-Row Buttons)")
 bot.infinity_polling()
