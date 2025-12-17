@@ -8,168 +8,154 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 db.init_db()
 
-# ---------- CHANNEL ENABLE CHECK ----------
+# ---------- CHANNEL ENABLE ----------
 def is_channel_enabled(channel_id):
     doc = db.captions.find_one({
         "type": "channel_status",
         "channel_id": str(channel_id)
     })
-
-    # If not found → enabled by default
-    if not doc:
-        return True
-
-    return doc.get("enabled", True)
-
-# ---------- START ----------
-@bot.message_handler(commands=["start"])
-def start(message):
-    bot.reply_to(message, "🤖 Channel Auto Caption Bot is running")
+    return doc.get("enabled", True) if doc else True
 
 
-# ---------- INLINE BUTTON (DEFAULT + CHANNEL) ----------
+# ---------- HEADER ENABLE ----------
+def is_header_enabled(channel_id):
+    doc = db.captions.find_one({
+        "type": "header_status",
+        "channel_id": str(channel_id)
+    })
+    return doc.get("enabled", True) if doc else True
+
+
+# ---------- HEADER TEXT ----------
+def get_header(channel_id):
+    doc = db.captions.find_one({
+        "type": "header",
+        "channel_id": str(channel_id)
+    })
+    if doc:
+        return doc["text"]
+
+    doc = db.captions.find_one({
+        "type": "header",
+        "channel_id": "default"
+    })
+    return doc["text"] if doc else None
+
+
+# ---------- INLINE BUTTONS ----------
 def get_inline_keyboard(channel_id):
-    # 1️⃣ Channel specific
     data = db.captions.find_one({
         "type": "inline_buttons",
         "channel_id": str(channel_id)
+    }) or db.captions.find_one({
+        "type": "inline_buttons",
+        "channel_id": "default"
     })
-
-    # 2️⃣ Default fallback
-    if not data:
-        data = db.captions.find_one({
-            "type": "inline_buttons",
-            "channel_id": "default"
-        })
 
     if not data:
         return None
 
     kb = InlineKeyboardMarkup()
-    for b in data["buttons"]:
+    for b in data.get("buttons", []):
         kb.add(InlineKeyboardButton(text=b["text"], url=b["url"]))
     return kb
 
 
-# ---------- CAPTION RESOLVER (IMPORTANT) ----------
+# ---------- CAPTION ----------
 def get_caption(caption_type, channel_id):
-    # 1️⃣ Channel specific caption
     doc = db.captions.find_one({
         "type": caption_type,
         "channel_id": str(channel_id)
-    })
-    if doc:
-        return doc["text"]
-
-    # 2️⃣ Default caption
-    doc = db.captions.find_one({
+    }) or db.captions.find_one({
         "type": caption_type,
         "channel_id": "default"
     })
-    if doc:
-        return doc["text"]
 
-    return None
-# ---------- HEADER RESOLVER ----------
-def get_header(channel_id):
-    # 1️⃣ Channel specific header
-    doc = db.captions.find_one({
-        "type": "header",
-        "channel_id": str(channel_id)
-    })
-    if doc:
-        return doc["text"]
+    return doc["text"] if doc else None
 
-    # 2️⃣ Default header
-    doc = db.captions.find_one({
-        "type": "header",
-        "channel_id": "default"
-    })
-    if doc:
-        return doc["text"]
 
-    return None
+@bot.message_handler(commands=["start"])
+def start(m):
+    bot.reply_to(m, "🤖 Channel Auto Caption Bot is running")
 
-# ---------- TEXT POSTS ----------
+
+# ---------- TEXT ----------
 @bot.channel_post_handler(content_types=["text"])
-def handle_text(m):
+def text_post(m):
     if not is_channel_enabled(m.chat.id):
         return
 
     caption = get_caption("text_caption", m.chat.id)
-    header = get_header(m.chat.id)
-
     if not caption:
         return
 
-    final_text = ""
-    if header:
-        final_text += header + "\n\n"
+    final = ""
+    if is_header_enabled(m.chat.id):
+        header = get_header(m.chat.id)
+        if header:
+            final += header + "\n\n"
 
-    final_text += m.text + "\n\n" + caption
+    final += m.text + "\n\n" + caption
 
-    try:
-        bot.edit_message_text(
-            chat_id=m.chat.id,
-            message_id=m.message_id,
-            text=final_text,
-            reply_markup=get_inline_keyboard(m.chat.id)
-        )
-    except Exception as e:
-        print("Text error:", e)
-# ---------- PHOTO POSTS ----------
+    bot.edit_message_text(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        text=final,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+# ---------- PHOTO ----------
 @bot.channel_post_handler(content_types=["photo"])
-def handle_photo(m):
+def photo_post(m):
     if not is_channel_enabled(m.chat.id):
         return
 
     caption = get_caption("photo_caption", m.chat.id)
-    header = get_header(m.chat.id)
-
     if not caption:
         return
 
-    final_caption = ""
-    if header:
-        final_caption += header + "\n\n"
+    final = ""
+    if is_header_enabled(m.chat.id):
+        header = get_header(m.chat.id)
+        if header:
+            final += header + "\n\n"
 
-    final_caption += caption
+    final += caption
 
-    try:
-        bot.edit_message_caption(
-            chat_id=m.chat.id,
-            message_id=m.message_id,
-            caption=final_caption,
-            reply_markup=get_inline_keyboard(m.chat.id)
-        )
-    except Exception as e:
-        print("Photo error:", e)
-# ---------- VIDEO POSTS ----------
+    bot.edit_message_caption(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        caption=final,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+# ---------- VIDEO ----------
 @bot.channel_post_handler(content_types=["video"])
-def handle_video(m):
+def video_post(m):
     if not is_channel_enabled(m.chat.id):
         return
 
     caption = get_caption("video_caption", m.chat.id)
-    header = get_header(m.chat.id)
-
     if not caption:
         return
 
-    final_caption = ""
-    if header:
-        final_caption += header + "\n\n"
+    final = ""
+    if is_header_enabled(m.chat.id):
+        header = get_header(m.chat.id)
+        if header:
+            final += header + "\n\n"
 
-    final_caption += caption
+    final += caption
 
-    try:
-        bot.edit_message_caption(
-            chat_id=m.chat.id,
-            message_id=m.message_id,
-            caption=final_caption,
-            reply_markup=get_inline_keyboard(m.chat.id)
-        )
-    except Exception as e:
-        print("Video error:", e)
-print("🤖 Bot running with DEFAULT + CHANNEL captions")
+    bot.edit_message_caption(
+        chat_id=m.chat.id,
+        message_id=m.message_id,
+        caption=final,
+        reply_markup=get_inline_keyboard(m.chat.id)
+    )
+
+
+print("🤖 Bot running")
 bot.infinity_polling()
