@@ -155,7 +155,7 @@ Save Caption
 """)
 
 
-# ---------- INLINE BUTTONS (SAFE) ----------
+# ---------- INLINE BUTTONS (FIXED + STABLE) ----------
 @app.route("/buttons", methods=["GET", "POST"])
 def buttons():
     if not session.get("admin"):
@@ -163,56 +163,83 @@ def buttons():
 
     import db
 
-    if request.method == "POST":
-        channel_id = request.form.get("channel_id") or "default"
-        buttons = []
+    channel_id = request.form.get("channel_id") or request.args.get("channel_id") or "default"
 
+    # ---------- SAVE ----------
+    if request.method == "POST":
         texts = request.form.getlist("text")
         urls = request.form.getlist("url")
 
+        buttons = []
         for t, u in zip(texts, urls):
-            if t and u:
-                buttons.append({"text": t, "url": u})
+            if t.strip() and u.strip():
+                buttons.append({
+                    "text": t.strip(),
+                    "url": u.strip()
+                })
 
         db.captions.update_one(
             {"type": "inline_buttons", "channel_id": channel_id},
             {"$set": {"buttons": buttons}},
             upsert=True
         )
-        return redirect("/buttons")
 
-    return page("Inline Buttons", """
-<div class="bg-white p-6 rounded shadow">
+        return redirect(f"/buttons?channel_id={channel_id}")
+
+    # ---------- LOAD ----------
+    doc = db.captions.find_one({
+        "type": "inline_buttons",
+        "channel_id": channel_id
+    })
+
+    buttons = doc.get("buttons", []) if doc else []
+
+    rows_html = ""
+    for b in buttons:
+        rows_html += f"""
+        <input name="text" value="{b['text']}" class="w-full border p-2 rounded">
+        <input name="url" value="{b['url']}" class="w-full border p-2 rounded">
+        <hr>
+        """
+
+    return page("Inline Buttons", f"""
+<div class="bg-white p-6 rounded shadow max-w-xl mx-auto">
 
 <form method="post" class="space-y-3">
 
 <input name="channel_id"
-  placeholder="Channel ID (empty = default)"
+  value="{channel_id}"
+  placeholder="Channel ID (blank = default)"
   class="w-full border p-2 rounded">
+
+{rows_html}
 
 <input name="text"
   placeholder="Button Text"
   class="w-full border p-2 rounded">
 
 <input name="url"
-  placeholder="Button URL (https://...)"
+  placeholder="https://example.com"
   class="w-full border p-2 rounded">
 
-<button class="bg-blue-600 text-white px-4 py-2 rounded">
-Save Button
+<button class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+Save Buttons
 </button>
 
 </form>
 
-<p class="text-sm text-gray-500 mt-2">
-Add one button at a time (safe mode)
+<p class="text-sm text-gray-500 mt-3">
+• Buttons show one per row (safe mode)<br>
+• Multiple buttons supported<br>
+• Old buttons stay visible
 </p>
 
-<a href="/dashboard" class="text-blue-600 block mt-3">← Back</a>
+<a href="/dashboard" class="text-blue-600 block mt-4">
+← Back
+</a>
 
 </div>
 """)
-
 
 # ---------- VIEW ALL ----------
 @app.route("/all")
