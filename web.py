@@ -1,17 +1,17 @@
 from flask import Flask, request, redirect, session, Response
 from bson import ObjectId
 import os, json
+import db
 
+# ================= APP =================
 app = Flask(__name__)
 app.secret_key = "safe-secret-key"
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 
-# ---------- DB ----------
-import db
 db.init_db()
 
-# ---------- PAGE ----------
+# ================= PAGE =================
 def page(title, body):
     return f"""
 <!doctype html>
@@ -29,6 +29,8 @@ a.red {{background:#dc2626}}
 a.gray {{background:#4b5563}}
 input,select,textarea {{width:100%;padding:10px;margin:6px 0}}
 button {{width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:8px}}
+table {{width:100%;border-collapse:collapse}}
+td,th {{border:1px solid #ccc;padding:6px}}
 </style>
 </head>
 <body>
@@ -43,7 +45,7 @@ button {{width:100%;padding:12px;background:#2563eb;color:white;border:none;bord
 </html>
 """
 
-# ---------- LOGIN ----------
+# ================= LOGIN =================
 @app.route("/", methods=["GET","POST"])
 def login():
     if request.method == "POST" and request.form.get("password") == ADMIN_PASSWORD:
@@ -56,7 +58,7 @@ def login():
 </form>
 """)
 
-# ---------- DASHBOARD ----------
+# ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
     if not session.get("admin"):
@@ -73,7 +75,7 @@ def dashboard():
 <a href="/logout" class="btn red">Logout</a>
 """)
 
-# ---------- ADD ----------
+# ================= ADD =================
 @app.route("/add", methods=["GET","POST"])
 def add():
     if not session.get("admin"): return redirect("/")
@@ -97,14 +99,15 @@ def add():
 </form>
 """)
 
-# ---------- INLINE BUTTONS ----------
+# ================= INLINE BUTTONS =================
 @app.route("/buttons", methods=["GET","POST"])
 def buttons():
     if not session.get("admin"): return redirect("/")
     if request.method == "POST":
         btns=[]
         for t,u in zip(request.form.getlist("text"),request.form.getlist("url")):
-            if t and u: btns.append({"text":t,"url":u})
+            if t and u:
+                btns.append({"text":t,"url":u})
         db.captions.update_one(
             {"type":"inline_buttons","channel_id":request.form.get("channel") or "default"},
             {"$set":{"buttons":btns}},upsert=True)
@@ -118,7 +121,7 @@ def buttons():
 </form>
 """)
 
-# ---------- CHANNEL ENABLE ----------
+# ================= CHANNEL ENABLE =================
 @app.route("/channel-toggle", methods=["GET","POST"])
 def channel_toggle():
     if not session.get("admin"): return redirect("/")
@@ -135,21 +138,7 @@ def channel_toggle():
 </form>
 """)
 
-# ---------- BULK DELETE ----------
-@app.route("/bulk-delete", methods=["GET","POST"])
-def bulk_delete():
-    if not session.get("admin"): return redirect("/")
-    if request.method == "POST":
-        db.captions.delete_many({"channel_id":request.form["channel"]})
-        return redirect("/dashboard")
-    return page("Bulk Delete", """
-<form method="post">
-<input name="channel" placeholder="Channel ID">
-<button>DELETE ALL</button>
-</form>
-""")
-
-# ---------- HEADER TOGGLE ----------
+# ================= HEADER TOGGLE =================
 @app.route("/header-toggle", methods=["GET","POST"])
 def header_toggle():
     if not session.get("admin"): return redirect("/")
@@ -166,7 +155,7 @@ def header_toggle():
 </form>
 """)
 
-# ---------- FOOTER TOGGLE ----------
+# ================= FOOTER TOGGLE =================
 @app.route("/footer-toggle", methods=["GET","POST"])
 def footer_toggle():
     if not session.get("admin"): return redirect("/")
@@ -183,27 +172,64 @@ def footer_toggle():
 </form>
 """)
 
-# ---------- VIEW ALL ----------
+# ================= BULK DELETE =================
+@app.route("/bulk-delete", methods=["GET","POST"])
+def bulk_delete():
+    if not session.get("admin"): return redirect("/")
+    if request.method == "POST":
+        db.captions.delete_many({"channel_id":request.form["channel"]})
+        return redirect("/dashboard")
+    return page("Bulk Delete", """
+<form method="post">
+<input name="channel" placeholder="Channel ID">
+<button>DELETE ALL</button>
+</form>
+""")
+
+# ================= VIEW ALL =================
 @app.route("/all")
 def all_items():
     if not session.get("admin"): return redirect("/")
     rows=""
     for d in db.captions.find():
-        rows+=f"<tr><td>{d.get('channel_id')}</td><td>{d.get('type')}</td><td>{str(d.get('text',''))[:30]}</td><td><a href='/delete/{d['_id']}'>Delete</a></td></tr>"
-    return page("All Data", f"<table border=1 width=100%>{rows}</table>")
+        rows+=f"""
+<tr>
+<td>{d.get('channel_id')}</td>
+<td>{d.get('type')}</td>
+<td>{str(d.get('text',''))[:30]}</td>
+<td><a href="/delete/{d['_id']}">Delete</a></td>
+</tr>
+"""
+    return page("All Data", f"""
+<table>
+<tr><th>Channel</th><th>Type</th><th>Text</th><th>Action</th></tr>
+{rows}
+</table>
+<a href="/dashboard">← Back</a>
+""")
 
-# ---------- EXPORT ----------
+# ================= DELETE (FIXED) =================
+@app.route("/delete/<id>")
+def delete_item(id):
+    if not session.get("admin"):
+        return redirect("/")
+    db.captions.delete_one({"_id": ObjectId(id)})
+    return redirect("/all")
+
+# ================= EXPORT =================
 @app.route("/export")
 def export():
-    return Response(json.dumps(list(db.captions.find({},{"_id":0})),indent=2),
-                    mimetype="application/json")
+    return Response(
+        json.dumps(list(db.captions.find({},{"_id":0})),indent=2),
+        mimetype="application/json"
+    )
 
-# ---------- LOGOUT ----------
+# ================= LOGOUT =================
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
-# ---------- RUN ----------
+# ================= RUN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT",8080)))
