@@ -67,7 +67,13 @@ body {{
   border-radius: 10px;
   text-align: center;
   font-weight: 600;
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
 }}
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,.12);
+  opacity: .95;
+}
 .btn.red {{ background: #dc2626; }}
 .btn.gray {{ background: #4b5563; }}
 
@@ -96,8 +102,11 @@ button {{
   border-radius:10px;
   text-align:center;
   flex:1;
+  transition: transform .15s ease;
 }}
-
+.stat:hover {
+  transform: scale(1.03);
+}
 .telegram {{
   background:#e5f0ff;
   padding:12px;
