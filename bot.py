@@ -5,7 +5,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ================= CONFIG =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 
 db.init_db()
 
@@ -73,20 +73,38 @@ def get_buttons(channel_id):
 
     kb = InlineKeyboardMarkup()
 
-    # buttons = [ [ {text,url}, {text,url} ], [ {text,url} ] ]
-    for row in doc["buttons"]:
+    # Expected format:
+    # buttons = [
+    #   [ {"text":"A","url":"https://..."}, {"text":"B","url":"https://..."} ],
+    #   [ {"text":"C","url":"https://..."} ]
+    # ]
+
+    for row in doc.get("buttons", []):
         btn_row = []
+
         for b in row:
+            text = (b.get("text") or "").strip()
+            url = (b.get("url") or "").strip()
+
+            # ✅ HARD VALIDATION (VERY IMPORTANT)
+            if not text or not url:
+                continue
+            if not (url.startswith("http://") or url.startswith("https://")):
+                continue
+
             btn_row.append(
-                InlineKeyboardButton(
-                    text=b["text"],
-                    url=b["url"]
-                )
+                InlineKeyboardButton(text=text, url=url)
             )
-        kb.row(*btn_row)
+
+        # Only add row if it has valid buttons
+        if btn_row:
+            kb.row(*btn_row)
+
+    # If no valid buttons survived → don't attach markup
+    if not kb.keyboard:
+        return None
 
     return kb
-
 
 # ================= TEXT POSTS =================
 @bot.channel_post_handler(content_types=["text"])
