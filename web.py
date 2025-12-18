@@ -12,21 +12,17 @@ db.init_db()
 # ================= DASHBOARD STATS =================
 def dashboard_stats():
     channels = db.captions.distinct("channel_id")
-
     captions = db.captions.count_documents({
         "type": {"$in": [
-            "header", "footer",
-            "text_caption", "photo_caption", "video_caption"
+            "header","footer",
+            "text_caption","photo_caption","video_caption"
         ]}
     })
-
-    btn_doc = db.captions.find_one({"type": "inline_buttons"})
-    buttons = len(btn_doc.get("buttons", [])) if btn_doc else 0
-
+    btn = db.captions.find_one({"type":"inline_buttons"})
+    buttons = len(btn.get("buttons",[])) if btn else 0
     return len(channels), captions, buttons
 
-
-# ================= PAGE + SIDEBAR =================
+# ================= PAGE =================
 def page(title, body):
     return f"""
 <!doctype html>
@@ -35,102 +31,140 @@ def page(title, body):
 <title>{title}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+:root {{
+  --bg:#0f172a;
+  --card:#ffffff;
+  --accent:#2563eb;
+  --muted:#94a3b8;
+  --danger:#dc2626;
+}}
+* {{ box-sizing:border-box; }}
 body {{
   margin:0;
-  font-family: system-ui, Arial;
+  font-family:system-ui,-apple-system,Arial;
   background:#f1f5f9;
 }}
-.wrapper {{
-  display:flex;
-  min-height:100vh;
-}}
+.wrapper {{ display:flex; min-height:100vh; }}
+
 .sidebar {{
-  width:240px;
-  background:#0f172a;
+  width:250px;
+  background:var(--bg);
   color:white;
-  padding:16px;
+  padding:18px;
 }}
 .sidebar h2 {{
-  margin-top:0;
-  font-size:18px;
+  margin:0 0 15px;
+  font-size:20px;
 }}
 .sidebar a {{
-  display:block;
-  padding:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 12px;
   margin:6px 0;
-  text-decoration:none;
   color:#e5e7eb;
-  border-radius:8px;
+  text-decoration:none;
+  border-radius:10px;
+  transition:.2s;
 }}
 .sidebar a:hover {{ background:#1e293b; }}
-.sidebar a.red {{ background:#dc2626; color:white; }}
+.sidebar .danger {{ background:var(--danger); }}
 
 .content {{
   flex:1;
-  padding:16px;
+  padding:22px;
 }}
 .card {{
-  background:white;
-  padding:16px;
-  border-radius:12px;
-  box-shadow:0 8px 20px rgba(0,0,0,.06);
+  background:var(--card);
+  padding:22px;
+  border-radius:16px;
+  box-shadow:0 15px 30px rgba(0,0,0,.08);
 }}
-.btn {{
-  display:block;
-  padding:12px;
-  margin:8px 0;
-  background:#2563eb;
-  color:white;
-  text-decoration:none;
-  border-radius:10px;
+
+h2 {{ margin-top:0; }}
+
+.stats {{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}}
+.stat {{
+  background:#eef2ff;
+  padding:14px;
+  border-radius:12px;
   text-align:center;
   font-weight:600;
 }}
-.btn.red {{ background:#dc2626; }}
-.btn.gray {{ background:#4b5563; }}
+.stat span {{
+  display:block;
+  font-size:22px;
+  color:var(--accent);
+}}
 
-input, textarea, select {{
+.btn {{
+  display:block;
+  padding:13px;
+  margin:10px 0;
+  background:var(--accent);
+  color:white;
+  text-decoration:none;
+  border-radius:12px;
+  text-align:center;
+  font-weight:600;
+}}
+.btn.gray {{ background:#475569; }}
+.btn.red {{ background:var(--danger); }}
+
+input,select,textarea {{
   width:100%;
-  padding:10px;
-  margin:8px 0;
-  border-radius:8px;
-  border:1px solid #cbd5f5;
+  padding:11px;
+  margin:10px 0;
+  border-radius:10px;
+  border:1px solid #cbd5e1;
+  font-size:15px;
 }}
 button {{
   width:100%;
-  padding:12px;
+  padding:13px;
   border:none;
-  border-radius:10px;
-  background:#2563eb;
+  border-radius:12px;
+  background:var(--accent);
   color:white;
   font-size:16px;
   font-weight:600;
+  cursor:pointer;
 }}
+
+table {{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+}}
+th,td {{
+  padding:10px;
+  border-bottom:1px solid #e5e7eb;
+  font-size:14px;
+}}
+th {{ background:#f8fafc; }}
 
 .telegram {{
   background:#e5f0ff;
-  padding:12px;
-  border-radius:12px;
+  border-radius:14px;
+  padding:14px;
   white-space:pre-wrap;
 }}
 .tg-btn {{
   margin-top:6px;
-  padding:8px;
+  padding:9px;
   background:white;
-  border-radius:8px;
-  border:1px solid #cbd5f5;
-  text-align:center;
-}}
-
-.stat {{
-  background:#e5f0ff;
-  padding:12px;
   border-radius:10px;
+  border:1px solid #cbd5e1;
   text-align:center;
-  flex:1;
+  font-size:14px;
 }}
 
-@media(max-width:768px){{
+@media(max-width:900px){{
   .wrapper{{flex-direction:column}}
   .sidebar{{width:100%}}
 }}
@@ -141,21 +175,21 @@ button {{
 <div class="wrapper">
 
 <div class="sidebar">
-<h2>🤖 Admin</h2>
+<h2>🤖 Auto Caption</h2>
 <a href="/dashboard">🏠 Dashboard</a>
 <a href="/add">➕ Add Caption</a>
 <a href="/buttons">🔘 Inline Buttons</a>
-<a href="/all">📋 View / Edit / Delete</a>
-<a href="/duplicate">📂 Duplicate Captions</a>
+<a href="/all">📋 View / Edit</a>
+<a href="/duplicate">📂 Duplicate</a>
 <hr>
 <a href="/channel-toggle">🚦 Channel Enable</a>
-<a href="/header-toggle">🧾 Header ON / OFF</a>
-<a href="/footer-toggle">📄 Footer ON / OFF</a>
+<a href="/header-toggle">🧾 Header ON/OFF</a>
+<a href="/footer-toggle">📄 Footer ON/OFF</a>
 <a href="/channel-stats">📊 Channel Stats</a>
 <hr>
 <a href="/bulk-delete">🗑 Bulk Delete</a>
 <a href="/export">⬇ Export</a>
-<a href="/logout" class="red">Logout</a>
+<a href="/logout" class="danger">Logout</a>
 </div>
 
 <div class="content">
@@ -170,40 +204,36 @@ button {{
 </html>
 """
 
-
 # ================= LOGIN =================
-@app.route("/", methods=["GET","POST"])
+@app.route("/",methods=["GET","POST"])
 def login():
     if request.method=="POST" and request.form.get("password")==ADMIN_PASSWORD:
         session["admin"]=True
         return redirect("/dashboard")
-    return "<form method='post' style='max-width:300px;margin:100px auto'><input type='password' name='password'><button>Login</button></form>"
-
+    return "<form method='post' style='max-width:300px;margin:120px auto'><input type=password name=password><button>Login</button></form>"
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
     if not session.get("admin"): return redirect("/")
-    ch, cap, btn = dashboard_stats()
-    return page("Dashboard", f"""
-<div style="display:flex;gap:10px">
-<div class="stat">📡 Channels<br><b>{ch}</b></div>
-<div class="stat">📝 Captions<br><b>{cap}</b></div>
-<div class="stat">🔘 Buttons<br><b>{btn}</b></div>
+    ch,cap,btn = dashboard_stats()
+    return page("Dashboard",f"""
+<div class="stats">
+<div class="stat">Channels<span>{ch}</span></div>
+<div class="stat">Captions<span>{cap}</span></div>
+<div class="stat">Buttons<span>{btn}</span></div>
 </div>
 """)
 
-
-# ================= ADD + PREVIEW =================
-@app.route("/add", methods=["GET","POST"])
+# ================= ADD =================
+@app.route("/add",methods=["GET","POST"])
 def add():
     if not session.get("admin"): return redirect("/")
     if request.method=="POST":
         db.captions.update_one(
             {"type":request.form["type"],"channel_id":request.form.get("channel") or "default"},
-            {"$set":{"text":request.form["text"]}}, upsert=True)
+            {"$set":{"text":request.form["text"]}},upsert=True)
         return redirect("/dashboard")
-
     return page("Add Caption", """
 <form method="post" oninput="preview()">
 <input name="channel" placeholder="Channel ID">
@@ -218,7 +248,7 @@ def add():
 <button>Save</button>
 </form>
 
-<h3>📱 Preview</h3>
+<h3>Preview</h3>
 <div class="telegram" id="preview">Nothing to preview…</div>
 
 <script>
@@ -232,9 +262,8 @@ function preview(){
 </script>
 """)
 
-
 # ================= INLINE BUTTONS =================
-@app.route("/buttons", methods=["GET","POST"])
+@app.route("/buttons",methods=["GET","POST"])
 def buttons():
     if not session.get("admin"): return redirect("/")
     if request.method=="POST":
@@ -243,9 +272,8 @@ def buttons():
             if t and u: btns.append({"text":t,"url":u})
         db.captions.update_one(
             {"type":"inline_buttons","channel_id":request.form.get("channel") or "default"},
-            {"$set":{"buttons":btns}}, upsert=True)
+            {"$set":{"buttons":btns}},upsert=True)
         return redirect("/dashboard")
-
     return page("Inline Buttons", """
 <form method="post">
 <input name="channel">
@@ -256,7 +284,6 @@ def buttons():
 <div class="telegram"><div class="tg-btn">Button</div></div>
 """)
 
-
 # ================= VIEW / EDIT / DELETE =================
 @app.route("/all")
 def all_items():
@@ -264,54 +291,45 @@ def all_items():
     rows=""
     for d in db.captions.find():
         rows+=f"<tr><td>{d.get('channel_id')}</td><td>{d.get('type')}</td><td>{str(d.get('text',''))[:30]}</td><td><a href='/edit/{d['_id']}'>Edit</a> | <a href='/delete/{d['_id']}'>Delete</a></td></tr>"
-    return page("All Data", f"<table border=1 width=100%>{rows}</table>")
+    return page("All Data",f"<table><tr><th>Channel</th><th>Type</th><th>Text</th><th>Action</th></tr>{rows}</table>")
 
-
-@app.route("/edit/<id>", methods=["GET","POST"])
+@app.route("/edit/<id>",methods=["GET","POST"])
 def edit(id):
     doc=db.captions.find_one({"_id":ObjectId(id)})
     if request.method=="POST":
         db.captions.update_one({"_id":ObjectId(id)},{"$set":{"text":request.form["text"]}})
         return redirect("/all")
-    return page("Edit", f"<form method=post><textarea name=text>{doc.get('text','')}</textarea><button>Save</button></form>")
-
+    return page("Edit",f"<form method=post><textarea name=text>{doc.get('text','')}</textarea><button>Save</button></form>")
 
 @app.route("/delete/<id>")
 def delete(id):
     db.captions.delete_one({"_id":ObjectId(id)})
     return redirect("/all")
 
-
 # ================= TOGGLES =================
 @app.route("/channel-toggle",methods=["GET","POST"])
 def channel_toggle():
     if request.method=="POST":
-        db.captions.update_one(
-            {"type":"channel_status","channel_id":request.form["channel"]},
-            {"$set":{"enabled":"enabled" in request.form}},upsert=True)
+        db.captions.update_one({"type":"channel_status","channel_id":request.form["channel"]},
+                               {"$set":{"enabled":"enabled"in request.form}},upsert=True)
         return redirect("/dashboard")
     return page("Channel Enable","<form method=post><input name=channel><label><input type=checkbox name=enabled checked> Enable</label><button>Save</button></form>")
-
 
 @app.route("/header-toggle",methods=["GET","POST"])
 def header_toggle():
     if request.method=="POST":
-        db.captions.update_one(
-            {"type":"header_status","channel_id":request.form.get("channel") or "default"},
-            {"$set":{"enabled":"enabled" in request.form}},upsert=True)
+        db.captions.update_one({"type":"header_status","channel_id":request.form.get("channel") or "default"},
+                               {"$set":{"enabled":"enabled"in request.form}},upsert=True)
         return redirect("/dashboard")
     return page("Header Toggle","<form method=post><input name=channel><label><input type=checkbox name=enabled checked> Enable</label><button>Save</button></form>")
-
 
 @app.route("/footer-toggle",methods=["GET","POST"])
 def footer_toggle():
     if request.method=="POST":
-        db.captions.update_one(
-            {"type":"footer_status","channel_id":request.form.get("channel") or "default"},
-            {"$set":{"enabled":"enabled" in request.form}},upsert=True)
+        db.captions.update_one({"type":"footer_status","channel_id":request.form.get("channel") or "default"},
+                               {"$set":{"enabled":"enabled"in request.form}},upsert=True)
         return redirect("/dashboard")
     return page("Footer Toggle","<form method=post><input name=channel><label><input type=checkbox name=enabled checked> Enable</label><button>Save</button></form>")
-
 
 # ================= BULK DELETE =================
 @app.route("/bulk-delete",methods=["GET","POST"])
@@ -320,7 +338,6 @@ def bulk_delete():
         db.captions.delete_many({"channel_id":request.form["channel"]})
         return redirect("/dashboard")
     return page("Bulk Delete","<form method=post><input name=channel><button class='btn red'>DELETE ALL</button></form>")
-
 
 # ================= DUPLICATE =================
 @app.route("/duplicate",methods=["GET","POST"])
@@ -333,21 +350,19 @@ def duplicate():
         return redirect("/dashboard")
     return page("Duplicate","<form method=post><input name=source><input name=target><button>Duplicate</button></form>")
 
-
-# ================= PER CHANNEL STATS =================
+# ================= STATS =================
 @app.route("/channel-stats")
 def channel_stats():
     rows=""
     for ch in db.captions.distinct("channel_id"):
         rows+=f"<tr><td>{ch}</td><td>{db.captions.count_documents({'channel_id':ch})}</td></tr>"
-    return page("Channel Stats", f"<table border=1 width=100%><tr><th>Channel</th><th>Total Items</th></tr>{rows}</table>")
-
+    return page("Channel Stats",f"<table><tr><th>Channel</th><th>Total</th></tr>{rows}</table>")
 
 # ================= EXPORT =================
 @app.route("/export")
 def export():
-    return Response(json.dumps(list(db.captions.find({},{"_id":0})),indent=2),mimetype="application/json")
-
+    return Response(json.dumps(list(db.captions.find({},{"_id":0})),indent=2),
+                    mimetype="application/json")
 
 # ================= LOGOUT =================
 @app.route("/logout")
@@ -355,7 +370,6 @@ def logout():
     session.clear()
     return redirect("/")
 
-
 # ================= RUN =================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",8080)))
+if __name__=="__main__":
+    app.run(host="0.0.0.0",port=int(os.environ.get("PORT",8080)))
