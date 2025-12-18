@@ -53,7 +53,7 @@ def get_text(name, channel_id):
     return doc.get("text") if doc else None
 
 
-# ================= INLINE BUTTONS (ROW SUPPORT) =================
+# ================= INLINE BUTTONS =================
 def get_buttons(channel_id):
     # Channel specific
     doc = db.captions.find_one({
@@ -68,44 +68,41 @@ def get_buttons(channel_id):
             "channel_id": "default"
         })
 
-    if not doc or "buttons" not in doc:
+    if not doc:
+        return None
+
+    buttons = doc.get("buttons", [])
+    if not buttons:
         return None
 
     kb = InlineKeyboardMarkup()
 
-    # Expected format:
-    # buttons = [
-    #   [ {"text":"A","url":"https://..."}, {"text":"B","url":"https://..."} ],
-    #   [ {"text":"C","url":"https://..."} ]
-    # ]
+    # ✅ SIMPLE BUTTONS ONLY (ONE PER ROW)
+    for b in buttons:
+        if not isinstance(b, dict):
+            continue
 
-    for row in doc.get("buttons", []):
-        btn_row = []
+        text = (b.get("text") or "").strip()
+        url = (b.get("url") or "").strip()
 
-        for b in row:
-            text = (b.get("text") or "").strip()
-            url = (b.get("url") or "").strip()
+        if not text or not url:
+            continue
 
-            # ✅ HARD VALIDATION (VERY IMPORTANT)
-            if not text or not url:
-                continue
-            if not (url.startswith("http://") or url.startswith("https://")):
-                continue
+        if not url.startswith(("http://", "https://")):
+            continue
 
-            btn_row.append(
-                InlineKeyboardButton(text=text, url=url)
+        kb.add(
+            InlineKeyboardButton(
+                text=text,
+                url=url
             )
+        )
 
-        # Only add row if it has valid buttons
-        if btn_row:
-            kb.row(*btn_row)
-
-    # If no valid buttons survived → don't attach markup
+    # If nothing valid, don't attach buttons
     if not kb.keyboard:
         return None
 
     return kb
-
 # ================= TEXT POSTS =================
 @bot.channel_post_handler(content_types=["text"])
 def text_post(m):
