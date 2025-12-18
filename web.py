@@ -89,7 +89,22 @@ button {{
   font-size: 16px;
   font-weight: 600;
 }}
+.btn {
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
 
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,.12);
+  opacity: .95;
+}
+
+.stat {
+  transition: transform .15s ease;
+}
+.stat:hover {
+  transform: scale(1.03);
+}
 .stat {{
   background:#e5f0ff;
   padding:12px;
