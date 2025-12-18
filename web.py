@@ -166,7 +166,7 @@ def dashboard():
 <a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
 <a href="/header-toggle" class="btn gray">🧾 Header ON / OFF</a>
 <a href="/footer-toggle" class="btn gray">📄 Footer ON / OFF</a>
-
+<a href="/channel-stats" class="btn gray">📊 Per Channel Stats</a>
 <hr>
 
 <a href="/bulk-delete" class="btn red">🗑 Bulk Delete</a>
@@ -316,7 +316,70 @@ def duplicate():
             d.pop("_id"); d["channel_id"]=tgt; db.captions.insert_one(d)
         return redirect("/dashboard")
     return page("Duplicate","<form method=post><input name=source placeholder='Source'><input name=target placeholder='Target'><button>Duplicate</button></form>")
+# ================= PER CHANNEL STATS =================
+@app.route("/channel-stats")
+def channel_stats():
+    if not session.get("admin"):
+        return redirect("/")
 
+    rows = ""
+
+    channels = db.captions.distinct("channel_id")
+
+    for ch in channels:
+        total = db.captions.count_documents({"channel_id": ch})
+
+        headers = db.captions.count_documents({
+            "channel_id": ch, "type": "header"
+        })
+        footers = db.captions.count_documents({
+            "channel_id": ch, "type": "footer"
+        })
+        texts = db.captions.count_documents({
+            "channel_id": ch, "type": "text_caption"
+        })
+        photos = db.captions.count_documents({
+            "channel_id": ch, "type": "photo_caption"
+        })
+        videos = db.captions.count_documents({
+            "channel_id": ch, "type": "video_caption"
+        })
+
+        btn = db.captions.find_one({
+            "channel_id": ch, "type": "inline_buttons"
+        })
+        buttons = len(btn.get("buttons", [])) if btn else 0
+
+        rows += f"""
+        <tr>
+          <td>{ch}</td>
+          <td>{total}</td>
+          <td>{headers}</td>
+          <td>{footers}</td>
+          <td>{texts}</td>
+          <td>{photos}</td>
+          <td>{videos}</td>
+          <td>{buttons}</td>
+        </tr>
+        """
+
+    return page("📊 Per Channel Stats", f"""
+<table border="1" width="100%" cellpadding="8">
+<tr>
+<th>Channel ID</th>
+<th>Total</th>
+<th>Header</th>
+<th>Footer</th>
+<th>Text</th>
+<th>Photo</th>
+<th>Video</th>
+<th>Buttons</th>
+</tr>
+{rows}
+</table>
+
+<a href="/dashboard" class="btn gray">← Back</a>
+""")
 # ================= EXPORT =================
 @app.route("/export")
 def export():
