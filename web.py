@@ -142,7 +142,7 @@ def dashboard():
 <a href="/logout" class="btn red">Logout</a>
 """)
 
-# ================= ADD + PREVIEW =================
+# ---------- ADD + TELEGRAM PREVIEW (HEADER + FOOTER) ----------
 @app.route("/add", methods=["GET","POST"])
 def add():
     if not session.get("admin"):
@@ -150,14 +150,18 @@ def add():
 
     if request.method == "POST":
         db.captions.update_one(
-            {"type": request.form["type"], "channel_id": request.form.get("channel") or "default"},
+            {
+                "type": request.form["type"],
+                "channel_id": request.form.get("channel") or "default"
+            },
             {"$set": {"text": request.form["text"]}},
             upsert=True
         )
         return redirect("/dashboard")
 
-    return page("Add Caption", """
-<form method="post">
+    return page("Add Caption / Header / Footer", """
+<form method="post" oninput="preview()">
+
 <input name="channel" placeholder="Channel ID (blank = default)">
 
 <select name="type" id="type" onchange="preview()">
@@ -169,21 +173,50 @@ def add():
 </select>
 
 <textarea id="text" name="text" rows="4" placeholder="Write text..." oninput="preview()"></textarea>
+
 <button>Save</button>
 </form>
 
-<h3>📱 Telegram Preview</h3>
-<div class="telegram" id="preview">Nothing to preview…</div>
+<hr>
+
+<h3>📱 Telegram Message Preview</h3>
+
+<div class="telegram" id="preview">
+Nothing to preview…
+</div>
 
 <script>
-function preview() {{
-  let text = document.getElementById("text").value;
-  document.getElementById("preview").innerText =
-    text.trim() ? text : "Nothing to preview…";
-}}
+function preview() {
+  const type = document.getElementById("type").value;
+  const text = document.getElementById("text").value.trim();
+
+  let header = "[ HEADER ]";
+  let footer = "[ FOOTER ]";
+
+  if (!text) {
+    document.getElementById("preview").innerText = "Nothing to preview…";
+    return;
+  }
+
+  let result = "";
+
+  if (type === "header") {
+    result = text;
+  }
+  else if (type === "footer") {
+    result = text;
+  }
+  else {
+    result =
+      header + "\\n\\n" +
+      text + "\\n\\n" +
+      footer;
+  }
+
+  document.getElementById("preview").innerText = result;
+}
 </script>
 """)
-
 # ================= INLINE BUTTONS =================
 @app.route("/buttons", methods=["GET","POST"])
 def buttons():
