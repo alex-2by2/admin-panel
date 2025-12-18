@@ -147,33 +147,45 @@ def dashboard():
     if not session.get("admin"):
         return redirect("/")
 
-    ch, cap, btn = dashboard_stats()
-
-    return page("Dashboard", f"""
-<div style="display:flex;gap:10px;margin-bottom:12px;">
-  <div class="stat">📡 Channels<br><b>{ch}</b></div>
-  <div class="stat">📝 Captions<br><b>{cap}</b></div>
-  <div class="stat">🔘 Buttons<br><b>{btn}</b></div>
+    return page("Dashboard", """
+<!-- ===== STATS ===== -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+  <div class="stat">📡 Channels<br><b>{{channels}}</b></div>
+  <div class="stat">📝 Captions<br><b>{{captions}}</b></div>
+  <div class="stat">🔘 Buttons<br><b>{{buttons}}</b></div>
 </div>
 
+<!-- ===== CAPTION MANAGEMENT ===== -->
+<h3>📝 Caption Management</h3>
 <a href="/add" class="btn">➕ Add Caption / Header / Footer</a>
-<a href="/buttons" class="btn">🔘 Inline Buttons</a>
 <a href="/all" class="btn">📋 View / Edit / Delete All</a>
 <a href="/duplicate" class="btn gray">📂 Duplicate Captions</a>
 
 <hr>
 
+<!-- ===== BUTTONS ===== -->
+<h3>🔘 Inline Buttons</h3>
+<a href="/buttons" class="btn">Manage Inline Buttons</a>
+
+<hr>
+
+<!-- ===== SETTINGS ===== -->
+<h3>⚙ Channel Settings</h3>
 <a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
 <a href="/header-toggle" class="btn gray">🧾 Header ON / OFF</a>
 <a href="/footer-toggle" class="btn gray">📄 Footer ON / OFF</a>
-<a href="/channel-stats" class="btn gray">📊 Per Channel Stats</a>
+
 <hr>
 
-<a href="/bulk-delete" class="btn red">🗑 Bulk Delete</a>
-<a href="/export" class="btn">⬇ Export</a>
+<!-- ===== MAINTENANCE ===== -->
+<h3>🧹 Maintenance</h3>
+<a href="/bulk-delete" class="btn red">🗑 Bulk Delete (Per Channel)</a>
+<a href="/export" class="btn">⬇ Export Backup</a>
+
+<hr>
+
 <a href="/logout" class="btn red">Logout</a>
 """)
-
 # ================= ADD + PREVIEW =================
 @app.route("/add", methods=["GET","POST"])
 def add():
