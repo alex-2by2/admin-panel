@@ -121,20 +121,30 @@ def login():
 """)
 
 # ---------- DASHBOARD ----------
-return page("Dashboard", """
+@app.route("/dashboard")
+def dashboard():
+    if not session.get("admin"):
+        return redirect("/")
+
+    return page("Dashboard", """
 <a href="/add" class="btn">➕ Add Caption / Header / Footer</a>
+
 <a href="/buttons" class="btn">🔘 Inline Buttons</a>
-<a href="/all" class="btn">📋 View / Edit / Delete</a>
+
+<a href="/all" class="btn">📋 View / Edit / Delete All</a>
 
 <hr>
 
 <a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
+
 <a href="/header-toggle" class="btn gray">🧾 Header ON / OFF</a>
+
 <a href="/footer-toggle" class="btn gray">📄 Footer ON / OFF</a>
 
 <hr>
 
-<a href="/bulk-delete" class="btn red">🗑 Bulk Delete</a>
+<a href="/bulk-delete" class="btn red">🗑 Bulk Delete (Per Channel)</a>
+
 <a href="/export" class="btn">⬇ Export Backup</a>
 
 <a href="/logout" class="btn red">Logout</a>
