@@ -119,7 +119,6 @@ def login():
 <button>Login</button>
 </form>
 """)
-
 # ---------- DASHBOARD ----------
 @app.route("/dashboard")
 def dashboard():
