@@ -128,7 +128,7 @@ def dashboard():
 <a href="/add" class="btn">➕ Add Caption / Header / Footer</a>
 <a href="/buttons" class="btn">🔘 Inline Buttons</a>
 <a href="/all" class="btn">📋 View / Edit / Delete All</a>
-
+<a href="/duplicate" class="btn gray">📂 Duplicate Captions</a>
 <hr>
 
 <a href="/channel-toggle" class="btn gray">🚦 Channel Enable / Disable</a>
@@ -342,7 +342,44 @@ def bulk_delete():
 <button class="btn red">DELETE ALL</button>
 </form>
 """)
+# ---------- DUPLICATE CAPTIONS ----------
+@app.route("/duplicate", methods=["GET", "POST"])
+def duplicate():
+    if not session.get("admin"):
+        return redirect("/")
 
+    if request.method == "POST":
+        source = request.form.get("source")
+        target = request.form.get("target")
+
+        if source and target:
+            # delete old captions of target (optional but clean)
+            db.captions.delete_many({"channel_id": target})
+
+            # copy from source
+            for doc in db.captions.find({"channel_id": source}):
+                doc.pop("_id", None)
+                doc["channel_id"] = target
+                db.captions.insert_one(doc)
+
+        return redirect("/dashboard")
+
+    return page("Duplicate Captions", """
+    <form method="post">
+      <input name="source" placeholder="Source Channel ID" required>
+      <input name="target" placeholder="Target Channel ID" required>
+
+      <button>Duplicate Now</button>
+    </form>
+
+    <p style="color:#6b7280;font-size:14px;margin-top:10px">
+      • Copies ALL captions (header, footer, text, photo, video, buttons)<br>
+      • Source channel remains unchanged<br>
+      • Target channel captions will be replaced
+    </p>
+
+    <a href="/dashboard" class="btn gray">← Back</a>
+    """)
 # ================= EXPORT =================
 @app.route("/export")
 def export():
